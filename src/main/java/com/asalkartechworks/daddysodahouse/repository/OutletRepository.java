@@ -23,6 +23,10 @@ public interface OutletRepository extends JpaRepository<Outlet, UUID> {
 
     List<Outlet> findByFranchiseIdAndIsActiveTrue(UUID franchiseId);
 
+    long countByIsActiveTrue();
+
+    long countByFranchiseIdAndIsActiveTrue(UUID franchiseId);
+
     @Query("SELECT o FROM Outlet o WHERE " +
            "(:franchiseId IS NULL OR o.franchise.id = :franchiseId) AND " +
            "(:active IS NULL OR o.isActive = :active) AND " +

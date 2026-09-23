@@ -42,4 +42,33 @@ public interface PurchaseEntryRepository extends JpaRepository<PurchaseEntry, UU
             @Param("toDate") LocalDate toDate,
             Pageable pageable
     );
+
+    long countByBillDateBetweenAndStatus(LocalDate fromDate, LocalDate toDate, PurchaseStatus status);
+
+    @Query("""
+        SELECT COALESCE(SUM(i.quantity), 0) FROM PurchaseItem i
+        JOIN i.purchaseEntry pe
+        WHERE pe.billDate >= :fromDate
+          AND pe.billDate <= :toDate
+          AND pe.status = :status
+    """)
+    java.math.BigDecimal sumQuantityByBillDateBetweenAndStatus(
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            @Param("status") PurchaseStatus status);
+
+    @Query("""
+        SELECT DISTINCT pe FROM PurchaseEntry pe
+        JOIN FETCH pe.supplier s
+        LEFT JOIN FETCH pe.items items
+        LEFT JOIN FETCH items.product p
+        WHERE (:supplierId IS NULL OR s.id = :supplierId)
+          AND pe.billDate >= :fromDate
+          AND pe.billDate <= :toDate
+        ORDER BY pe.billDate DESC, pe.purchaseNumber DESC
+    """)
+    java.util.List<PurchaseEntry> findPurchasesForReport(
+            @Param("supplierId") UUID supplierId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
 }

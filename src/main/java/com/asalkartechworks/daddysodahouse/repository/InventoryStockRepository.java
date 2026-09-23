@@ -19,4 +19,17 @@ public interface InventoryStockRepository extends JpaRepository<InventoryStock, 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM InventoryStock s WHERE s.product.id = :productId")
     Optional<InventoryStock> findByProductIdWithLock(@Param("productId") UUID productId);
+
+    @Query("SELECT COUNT(s) FROM InventoryStock s WHERE s.product.isActive = true AND s.availableQuantity > 0")
+    long countActiveProductsInStock();
+
+    @Query("""
+        SELECT COUNT(p) FROM Product p
+        WHERE p.isActive = true
+          AND (
+            NOT EXISTS (SELECT 1 FROM InventoryStock s WHERE s.product = p)
+            OR (SELECT s.availableQuantity FROM InventoryStock s WHERE s.product = p) <= 0
+          )
+    """)
+    long countActiveProductsOutOfStock();
 }

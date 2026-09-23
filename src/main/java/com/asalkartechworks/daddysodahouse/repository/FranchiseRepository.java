@@ -18,6 +18,8 @@ public interface FranchiseRepository extends JpaRepository<Franchise, UUID> {
 
     boolean existsByFranchiseCode(String franchiseCode);
 
+    long countByIsActiveTrue();
+
     @Query("SELECT f FROM Franchise f WHERE " +
            "(:active IS NULL OR f.isActive = :active) AND " +
            "(:search IS NULL OR :search = '' OR " +

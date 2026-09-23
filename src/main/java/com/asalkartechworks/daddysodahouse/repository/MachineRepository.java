@@ -27,6 +27,12 @@ public interface MachineRepository extends JpaRepository<Machine, UUID> {
 
     List<Machine> findByOutletFranchiseIdAndIsActiveTrue(UUID franchiseId);
 
+    long countByOutletFranchiseId(UUID franchiseId);
+
+    long countByOutletFranchiseIdAndIsActiveTrue(UUID franchiseId);
+
+    long countByIsActiveTrue();
+
     @Query("SELECT m FROM Machine m WHERE " +
            "(:outletId IS NULL OR m.outlet.id = :outletId) AND " +
            "(:franchiseId IS NULL OR m.outlet.franchise.id = :franchiseId) AND " +

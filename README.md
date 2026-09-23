@@ -35,6 +35,7 @@ Database credentials, JWT settings, and initial admin bootstrap configuration ar
 | `COMPANY_GSTIN` | Company GSTIN (printed only on GST invoices) | `27AAAAA0000A1Z5` |
 | `DEFAULT_GST_RATE_PERCENT` | Default GST rate percent when omitted in GST invoices | `18.00` |
 | `INVOICE_STORAGE_PATH` | Local directory for storing generated invoice PDFs | `./storage/invoices` |
+| `WHATSAPP_ENQUIRY_NUMBER` | Target phone number (e.g. 919876543210) for website enquiry WhatsApp click-to-chat URL | `919876543210` |
 | `INITIAL_ADMIN_NAME` | *(Optional)* Full name for first SUPER_ADMIN account | `Super Administrator` |
 | `INITIAL_ADMIN_MOBILE` | *(Optional)* 10-digit mobile number for first SUPER_ADMIN | `9999999999` |
 | `INITIAL_ADMIN_EMAIL` | *(Optional)* Email for first SUPER_ADMIN | `admin@daddysoda.com` |
@@ -159,6 +160,17 @@ export INITIAL_ADMIN_PASSWORD="Admin@12345"
 | `/api/v1/invoices/{id}/payments` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | List payment collection history for invoice |
 | `/api/v1/invoices/{id}/download` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Download generated invoice PDF (regenerates dynamically if missing) |
 | `/api/v1/my/invoices` | `GET` | FRANCHISE_OWNER | Self-service list of authenticated owner's franchise invoices |
+| `/api/v1/public/enquiries` | `POST` | Public | Submit franchise enquiry & obtain prefilled WhatsApp click-to-chat URL |
+| `/api/v1/enquiries` | `GET` | SUPER_ADMIN, MANAGER | List enquiries (status, search, date filters, pagination) |
+| `/api/v1/enquiries/{id}` | `GET` | SUPER_ADMIN, MANAGER | Get enquiry details by ID |
+| `/api/v1/enquiries/{id}` | `PATCH` | SUPER_ADMIN, MANAGER | Update enquiry status (NEW -> CONTACTED -> CLOSED) & admin notes |
+| `/api/v1/dashboard/summary` | `GET` | SUPER_ADMIN, MANAGER | Operational summary metrics for the current calendar month |
+| `/api/v1/dashboard/dues` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Outstanding invoice dues (OVERDUE, DUE_TODAY, UPCOMING) with severity indicators (RED, AMBER, NORMAL) |
+| `/api/v1/dashboard/franchise-summary` | `GET` | FRANCHISE_OWNER | Personalized dashboard summary for authenticated franchise owner |
+| `/api/v1/reports/monthly/purchases/download` | `GET` | SUPER_ADMIN, MANAGER | Download monthly purchase entries as CSV (strict YYYY-MM) |
+| `/api/v1/reports/monthly/orders/download` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Download monthly sales orders as CSV (strict YYYY-MM; scoped for owner) |
+| `/api/v1/reports/monthly/invoices/download` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Download monthly invoices as CSV (strict YYYY-MM; scoped for owner) |
+| `/api/v1/reports/monthly/dues/download` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Download monthly credit dues as CSV (strict YYYY-MM; scoped for owner) |
 | `/swagger-ui.html` | `GET` | Dev Profile Only | Swagger UI interactive documentation |
 | `/v3/api-docs` | `GET` | Dev Profile Only | OpenAPI specification JSON |
 
@@ -456,7 +468,97 @@ This module handles official billing for delivered franchise sales orders, tax c
 
 ---
 
-## 10. Authentication & Testing Examples
+---
+
+## 10. Dashboard, Credit Due List, Monthly Reports, and Website Enquiry (BE-07)
+
+This module implements the business intelligence layer, credit recovery management, monthly downloadable CSV reports, and the public website franchise enquiry acquisition flow.
+
+### A. Public Website Enquiry & WhatsApp Redirect Flow
+1. **Public Submission**: Prospective franchise partners submit inquiries via `POST /api/v1/public/enquiries` (no authentication required).
+2. **Server-Side Validation**:
+   - `fullName`: 2-150 characters, mandatory.
+   - `mobile`: Valid 10-digit Indian mobile number (e.g. `9876543210`), mandatory.
+   - `email`: Optional, validated format if provided (max 150 chars).
+   - `city`: Optional, max 100 chars.
+   - `message`: Optional, max 1000 chars.
+3. **Database Record**:
+   - Saved with status `NEW` and default source `WEBSITE`.
+   - Auto-generated sequential enquiry number: `ENQ-YYYYMM-XXXXX` (e.g. `ENQ-202609-00001`).
+4. **WhatsApp Click-to-Chat Generation**:
+   - Backend constructs a standard WhatsApp click-to-chat URL:
+     `https://wa.me/{WHATSAPP_ENQUIRY_NUMBER}?text=...`
+   - Configurable environment variable: `WHATSAPP_ENQUIRY_NUMBER` (e.g. `919876543210`).
+   - Prefilled message includes: Header ("Website Franchise Enquiry"), Enquiry Number, Name, Mobile, Email (if provided), City (if provided), and Message (if provided).
+   - **Crucial Architecture Boundary**: The backend does **not** make outbound WhatsApp API calls, send emails, or issue HTTP browser redirects. The backend responds with HTTP 201 containing `{ "enquiryId": "...", "enquiryNumber": "...", "whatsAppUrl": "..." }`, and the **frontend client performs the browser redirect** to the generated `whatsAppUrl`.
+
+### B. Enquiry Management Workflow
+- Managed via `GET /api/v1/enquiries`, `GET /api/v1/enquiries/{id}`, and `PATCH /api/v1/enquiries/{id}` by `SUPER_ADMIN` and `MANAGER`.
+- **Status Lifecycle**: `NEW` → `CONTACTED` → `CLOSED`.
+- Setting status to `CONTACTED` automatically records the timestamp in `contacted_at`.
+- Direct transition from `NEW` to `CLOSED` is rejected with HTTP 400 unless performed by a `SUPER_ADMIN`.
+- Enquiries cannot be deleted in V1 to preserve lead acquisition audit history.
+
+### C. Operational Dashboard Summary
+- `GET /api/v1/dashboard/summary`: Fast, query-based real-time operational metrics for `SUPER_ADMIN` and `MANAGER`:
+  - Active counts: `activeFranchises`, `activeOutlets`, `activeMachines`, `activeProducts`.
+  - Warehouse stock counts: `warehouseProductsInStock`, `warehouseProductsOutOfStock`.
+  - Current calendar month metrics:
+    - Purchases: `purchasesThisMonthCount`, `purchaseQuantityThisMonth`.
+    - Orders: `ordersPlacedCount`, `ordersPreparedCount`, `ordersDeliveredThisMonthCount`.
+    - Invoices & Dues: `invoicesThisMonthCount`, `invoiceTotalThisMonth`, `pendingInvoiceCount`, `pendingAmount`, `overdueInvoiceCount`, `overdueAmount`.
+  - Leads: `newEnquiryCount`.
+
+### D. Credit Due List & Severity Color Indicators
+- `GET /api/v1/dashboard/dues`: Lists all invoices with `balanceAmount > 0` and non-null `dueDate`.
+  - Filterable by `dueType` (`OVERDUE`, `DUE_TODAY`, `UPCOMING`), date range (`fromDate`, `toDate`), with pagination and sorting.
+  - **Multi-Tenancy Isolation**: `SUPER_ADMIN` and `MANAGER` see all franchise dues; `FRANCHISE_OWNER` is strictly scoped to their own franchise dues.
+- **Classification & Severity Mapping**:
+  | Due Type | Condition | Display Severity | Frontend Display |
+  |---|---|---|---|
+  | `OVERDUE` | `dueDate < today` | `RED` | Highlight row in bold red |
+  | `DUE_TODAY` | `dueDate == today` | `AMBER` | Highlight row in amber / warning |
+  | `UPCOMING` | `dueDate > today` | `NORMAL` | Standard row display |
+- Each item returns `invoiceId`, `invoiceNumber`, `franchiseId`, `franchiseName`, `invoiceDate`, `dueDate`, `totalAmount`, `paidAmount`, `balanceAmount`, `paymentStatus`, `dueType`, `daysOverdue`, and `displaySeverity`.
+
+### E. Franchise Owner Personalized Dashboard
+- `GET /api/v1/dashboard/franchise-summary`: Dedicated, lightweight overview for `FRANCHISE_OWNER`:
+  - `franchiseName`, active `outletCount`, active `machineCount`.
+  - Order breakdown by status (`ordersByStatus`: `DRAFT`, `PLACED`, `PREPARED`, `DELIVERED`, `CANCELLED`).
+  - Monthly financial overview: `invoiceTotalThisMonth`, `pendingAmount`, `overdueAmount`, `overdueInvoiceCount`.
+  - `nextDueInvoice`: Details of the earliest upcoming due invoice (if any).
+  - `latestOrders`: Top 5 recent sales orders.
+  - `latestInvoices`: Top 5 recent invoices.
+
+### F. Monthly Downloadable CSV Reports
+All reports stream `text/csv; charset=UTF-8` with `Content-Disposition: attachment; filename="..."`:
+1. **Purchases Report** (`GET /api/v1/reports/monthly/purchases/download`):
+   - Access: `SUPER_ADMIN`, `MANAGER`
+   - Parameter: `month=YYYY-MM` (mandatory), `supplierId` (optional)
+   - Columns: `Purchase Number`, `Bill Date`, `Supplier`, `Supplier Bill Number`, `Product Code`, `Flavour Name`, `Bottle Size Litre`, `Quantity`, `Purchase Status`, `Description`, `Created By`, `Created At`
+2. **Orders Report** (`GET /api/v1/reports/monthly/orders/download`):
+   - Access: `SUPER_ADMIN`, `MANAGER` (all), `FRANCHISE_OWNER` (own franchise only)
+   - Parameter: `month=YYYY-MM` (mandatory), `franchiseId` (optional for admin/manager), `status` (optional)
+   - Columns: `Order Number`, `Order Date`, `Franchise Name`, `Status`, `Product Code`, `Flavour Name`, `Quantity`, `Unit Price`, `Line Total`, `Notes`, `Created By`, `Delivered At`
+3. **Invoices Report** (`GET /api/v1/reports/monthly/invoices/download`):
+   - Access: `SUPER_ADMIN`, `MANAGER` (all), `FRANCHISE_OWNER` (own franchise only)
+   - Parameter: `month=YYYY-MM` (mandatory), `franchiseId` (optional for admin/manager), `invoiceType`, `paymentStatus`
+   - Columns: `Invoice Number`, `Invoice Date`, `Franchise Name`, `Invoice Type`, `Payment Term`, `Due Date`, `Subtotal`, `GST Rate`, `GST Amount`, `Total Amount`, `Paid Amount`, `Balance Amount`, `Payment Status`, `Product Code`, `Flavour Name`, `Quantity`, `Unit Price`, `Line Total`
+4. **Credit Dues Report** (`GET /api/v1/reports/monthly/dues/download`):
+   - Access: `SUPER_ADMIN`, `MANAGER` (all), `FRANCHISE_OWNER` (own franchise only)
+   - Parameter: `month=YYYY-MM` (mandatory)
+   - Columns: `Invoice Number`, `Franchise Name`, `Invoice Date`, `Due Date`, `Total Amount`, `Paid Amount`, `Balance Amount`, `Payment Status`, `Due Type`, `Days Overdue`
+
+### G. Security & Sanitization Rules
+- **Month Validation**: Strictly validated using `^[0-9]{4}-(0[1-9]|1[0-2])$`. Invalid formats return HTTP 400.
+- **Spreadsheet Formula Injection Protection**: All cells starting with `=+-@\t\r` are prefixed with `'` to neutralize formula execution in Microsoft Excel, LibreOffice Calc, and Google Sheets.
+- **RFC 4180 Escaping**: Commas, double quotes, and line breaks are safely enclosed in quotes with escaped double-quotes.
+- **Multi-Tenant Protection**: A `FRANCHISE_OWNER` passing another franchise's ID or omitting `franchiseId` receives **only** data for their own authenticated franchise.
+- **No Retail Soda Sale Calculations**: System intentionally tracks syrup orders, stock inward, invoices, and credit dues. Retail dispensing amounts belong to future consumption tracking modules.
+
+---
+
+## 11. Authentication & Testing Examples
 
 ### A. Login via curl
 ```bash
@@ -468,7 +570,20 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
   }'
 ```
 
-### B. Testing via Swagger UI
+### B. Public Website Enquiry Submission via curl
+```bash
+curl -X POST http://localhost:8080/api/v1/public/enquiries \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fullName": "Amit Patil",
+    "mobile": "9876543210",
+    "email": "amit@example.com",
+    "city": "Pune",
+    "message": "I want details about soda franchise opportunity."
+  }'
+```
+
+### C. Testing via Swagger UI
 1. Start the application with the `dev` profile active:
    ```bash
    ./mvnw spring-boot:run
@@ -476,20 +591,22 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 2. Open Swagger UI: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html).
 3. Log in with `POST /api/v1/auth/login` to obtain a JWT.
 4. Click the green **Authorize** button in Swagger UI and input: `Bearer <your_token>`.
-5. Execute operations:
+5. Execute operations across all modules:
    - Create Master entities (Suppliers, Products).
    - Enter supplier purchase bills (`POST /api/v1/purchases`).
    - Query warehouse stock balance (`GET /api/v1/inventory/warehouse`).
    - Place sales orders (`POST /api/v1/orders`).
-   - Advance order lifecycle: `POST /api/v1/orders/{id}/place` → `POST /api/v1/orders/{id}/prepare` → `POST /api/v1/orders/{id}/deliver`.
-   - Inspect stock deduction and `DELIVERY_OUT` movements (`GET /api/v1/inventory/movements`).
-   - Generate GST or Normal invoice for delivered order (`POST /api/v1/invoices`).
+   - Deliver orders and inspect stock deduction (`POST /api/v1/orders/{id}/deliver`).
+   - Generate GST or Normal invoice (`POST /api/v1/invoices`).
    - Download invoice PDF (`GET /api/v1/invoices/{id}/download`).
    - Record manual payment installments (`POST /api/v1/invoices/{id}/payments`).
+   - View operational dashboard summary (`GET /api/v1/dashboard/summary`).
+   - Query outstanding dues with severity indicators (`GET /api/v1/dashboard/dues`).
+   - Download monthly CSV reports (`GET /api/v1/reports/monthly/**/download`).
 
 ---
 
-## 11. Flyway Database Migrations
+## 12. Flyway Database Migrations
 
 Database versioning is managed with **Flyway**:
 - `V1__baseline.sql`: Initializes the `application_metadata` tracking table.
@@ -499,17 +616,18 @@ Database versioning is managed with **Flyway**:
 - `V5__create_purchase_inventory_tables.sql`: Creates `purchase_entries`, `purchase_items`, `inventory_stock`, and `stock_movements` tables with foreign keys, uniqueness constraints, positive quantity checks, non-negative balance checks, and indexes.
 - `V6__create_sales_orders.sql`: Creates `sales_orders` and `sales_order_items` tables with UUID keys, unique order number format, cascade delete for items, quantity check > 0, unit price check >= 0, unique (order, product) composite constraint, and foreign key indexes.
 - `V7__create_invoices_and_payments.sql`: Creates `invoices`, `invoice_items`, and `payment_collections` tables with UUID primary keys, financial precision `DECIMAL(14,2)`, unique `sales_order_id`, unique `invoice_number`, check constraints on types and terms, cascade delete for items, and indexes.
+- `V8__create_enquiries.sql`: Creates `enquiries` table with UUID primary key, unique sequential enquiry number (`ENQ-YYYYMM-XXXXX`), status check (`NEW`, `CONTACTED`, `CLOSED`), contact timestamp, audit columns, and indexes on `status`, `mobile`, `created_at`, and `enquiry_number`.
 
 ---
 
-## 12. Testing
+## 13. Testing
 
 To run the full unit and integration test suite:
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 21) ./mvnw clean test
 ```
 
-Tests run in an isolated in-memory H2 database (PostgreSQL compatibility mode) with Flyway migrations enabled, verifying **88 automated test cases**:
+Tests run in an isolated in-memory H2 database (PostgreSQL compatibility mode) with Flyway migrations enabled, verifying **100 automated test cases**:
 - Application context initialization
 - Public status and Actuator health endpoints
 - Authentication, JWT issuance, and expiration validation
@@ -550,3 +668,16 @@ Tests run in an isolated in-memory H2 database (PostgreSQL compatibility mode) w
 - Role restriction: Franchise Owner cannot create invoices or record payments
 - PDF generation & download: Generates professional PDF file and streams download safely
 - Item snapshot immutability: Subsequent changes to master product pricing do not alter existing invoice items
+- Public enquiry creation: Saves record with `ENQ-YYYYMM-XXXXX` and returns prefilled WhatsApp click-to-chat URL
+- Phone number validation: Rejects invalid mobile formats on public enquiry submission
+- Enquiry lifecycle rules: Enforces `NEW` → `CONTACTED` → `CLOSED` progression and records `contacted_at`
+- Operational dashboard summary: Correctly computes active master counts, monthly purchases, orders, invoices, and dues
+- Credit due classification: Evaluates `OVERDUE`, `DUE_TODAY`, and `UPCOMING` with corresponding display severity (`RED`, `AMBER`, `NORMAL`)
+- Credit dues multi-tenancy: Franchise owner views only own franchise dues; Manager/Super Admin views all dues
+- Franchise owner dashboard summary: Returns personalized breakdown of machine/outlet counts, order statuses, next due invoice, and recent orders/invoices
+- Monthly purchase CSV download: Returns valid CSV file with correct headers, UTF-8 charset, and filename
+- Monthly reports multi-tenancy: Franchise owner downloads only own franchise order, invoice, and due CSV reports
+- Report month validation: Rejects invalid month strings (must be `YYYY-MM`) with HTTP 400
+- CSV injection protection: Neutralizes spreadsheet formula triggers (`=+-@\t\r`) by prefixing with `'`
+- Role restrictions: Franchise Owner receives HTTP 403 on enquiry management and operational dashboard summary
+

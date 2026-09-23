@@ -49,6 +49,8 @@ app:
     company-gstin: ${COMPANY_GSTIN:27AABCS1429B1Z1}
     default-gst-rate-percent: ${DEFAULT_GST_RATE_PERCENT:18.00}
     storage-path: ${INVOICE_STORAGE_PATH:./storage/invoices}
+  enquiry:
+    whatsapp-number: ${WHATSAPP_ENQUIRY_NUMBER:919876543210}
 
 # Default Springdoc settings (disabled by default in base configuration)
 springdoc:

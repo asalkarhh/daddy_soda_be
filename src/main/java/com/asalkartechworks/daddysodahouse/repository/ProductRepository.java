@@ -18,6 +18,8 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     boolean existsByItemCode(String itemCode);
 
+    long countByIsActiveTrue();
+
     @Query("SELECT p FROM Product p WHERE " +
            "(:active IS NULL OR p.isActive = :active) AND " +
            "(:search IS NULL OR :search = '' OR " +
