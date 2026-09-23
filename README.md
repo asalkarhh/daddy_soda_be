@@ -28,6 +28,13 @@ Database credentials, JWT settings, and initial admin bootstrap configuration ar
 | `JWT_SECRET` | Secret key for HMAC-SHA256 JWT signing (min 256 bits) | `dev_only_jwt_secret_key_minimum_256_bits_for_testing_purposes_only` |
 | `JWT_EXPIRATION_MS` | JWT expiration duration in milliseconds (Default: `86400000` / 24h) | `86400000` |
 | `APP_IOT_API_KEY` | Secret API key for IoT telemetry authentication | `dev_iot_api_key_placeholder` |
+| `COMPANY_NAME` | Company name shown on invoice header | `Daddy Soda House Pvt Ltd` |
+| `COMPANY_ADDRESS` | Company address printed on invoice PDF | `123 Beverage Park, Industrial Zone, Pune, Maharashtra 411001` |
+| `COMPANY_MOBILE` | Company contact phone printed on invoice PDF | `+91 98220 00000` |
+| `COMPANY_EMAIL` | Company support email printed on invoice PDF | `billing@daddysodahouse.com` |
+| `COMPANY_GSTIN` | Company GSTIN (printed only on GST invoices) | `27AAAAA0000A1Z5` |
+| `DEFAULT_GST_RATE_PERCENT` | Default GST rate percent when omitted in GST invoices | `18.00` |
+| `INVOICE_STORAGE_PATH` | Local directory for storing generated invoice PDFs | `./storage/invoices` |
 | `INITIAL_ADMIN_NAME` | *(Optional)* Full name for first SUPER_ADMIN account | `Super Administrator` |
 | `INITIAL_ADMIN_MOBILE` | *(Optional)* 10-digit mobile number for first SUPER_ADMIN | `9999999999` |
 | `INITIAL_ADMIN_EMAIL` | *(Optional)* Email for first SUPER_ADMIN | `admin@daddysoda.com` |
@@ -144,6 +151,14 @@ export INITIAL_ADMIN_PASSWORD="Admin@12345"
 | `/api/v1/orders/{id}/cancel` | `POST` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Cancel order (reason mandatory; stock untouched) |
 | `/api/v1/orders/{id}` | `DELETE` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Physically delete DRAFT order only |
 | `/api/v1/my/orders` | `GET` | FRANCHISE_OWNER | Retrieve orders belonging to authenticated owner's franchise |
+| `/api/v1/invoices` | `POST` | SUPER_ADMIN, MANAGER | Create GST or NORMAL invoice for DELIVERED order |
+| `/api/v1/invoices` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | List invoices (filters, overdue, pagination; scoped for owner) |
+| `/api/v1/invoices/{id}` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Get invoice details, items, tax, payments, and PDF URL |
+| `/api/v1/invoices/{id}/due-date` | `PATCH` | SUPER_ADMIN, MANAGER | Update credit due date with mandatory audit reason |
+| `/api/v1/invoices/{id}/payments` | `POST` | SUPER_ADMIN, MANAGER | Record manual payment collection against pending invoice balance |
+| `/api/v1/invoices/{id}/payments` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | List payment collection history for invoice |
+| `/api/v1/invoices/{id}/download` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Download generated invoice PDF (regenerates dynamically if missing) |
+| `/api/v1/my/invoices` | `GET` | FRANCHISE_OWNER | Self-service list of authenticated owner's franchise invoices |
 | `/swagger-ui.html` | `GET` | Dev Profile Only | Swagger UI interactive documentation |
 | `/v3/api-docs` | `GET` | Dev Profile Only | OpenAPI specification JSON |
 
@@ -340,7 +355,108 @@ Every single quantity change writes an immutable `stock_movements` row capturing
 
 ---
 
-## 9. Authentication & Testing Examples
+## 9. Invoice, GST/Normal Bill, Credit Due Date, PDF, and Payment Collection (BE-06)
+
+This module handles official billing for delivered franchise sales orders, tax calculations, credit due-date control, downloadable PDF invoices via OpenPDF, and manual payment collection entries.
+
+### A. Core Billing & Business Rules
+1. **Delivered Order Prerequisite**: An invoice can be generated **only** for a sales order in `DELIVERED` status. Non-delivered orders return HTTP 400.
+2. **One-to-One Invoice Relationship**: Each sales order can have exactly one invoice (`UNIQUE(sales_order_id)` constraint).
+3. **Item & Price Snapshot Immutability**: Line items are permanently copied from the delivered sales order items into `invoice_items` at generation time. Any subsequent changes to master product prices or catalog descriptions do not affect the finalized invoice snapshot.
+4. **GST vs. Normal Billing Rules**:
+   - **NORMAL Invoice**:
+     - `gstRatePercent` = 0.00
+     - `gstAmount` = 0.00
+     - `totalAmount` = `subtotalAmount`
+     - Invoice number format: `INV-YYYYMM-XXXXX`
+     - GSTIN is omitted from the PDF header
+   - **GST Invoice**:
+     - Unit prices from order are treated as prices **excluding GST**.
+     - `gstRatePercent`: optional; defaults to `DEFAULT_GST_RATE_PERCENT` (18.00%) from config if omitted.
+     - `gstAmount` = `round(subtotalAmount * gstRatePercent / 100, 2)`
+     - `totalAmount` = `subtotalAmount + gstAmount`
+     - Invoice number format: `GST-YYYYMM-XXXXX`
+     - Company GSTIN is clearly displayed on the invoice header
+5. **Payment Terms & Due Date Rules**:
+   - `FULL_PAYMENT`: `dueDate` must be `null`.
+   - `CREDIT` or `PARTIAL_PAYMENT`:
+     - Initial due date defaults to `invoiceDate + 10 days` if omitted.
+     - Manager / Super Admin may explicitly supply a valid due date (must not be before `invoiceDate`).
+6. **Due Date Extension**:
+   - Controlled via `PATCH /api/v1/invoices/{id}/due-date`.
+   - Allowed only when `balanceAmount > 0` and payment term is `CREDIT` or `PARTIAL_PAYMENT`.
+   - Reason is mandatory (up to 500 characters) for audit trail.
+7. **Manual Payment Collection**:
+   - Recorded by `SUPER_ADMIN` or `MANAGER` via `POST /api/v1/invoices/{id}/payments`.
+   - Supports `CASH`, `UPI`, `BANK_TRANSFER`, `CHEQUE`, and `OTHER`.
+   - Payment amount must be positive and cannot exceed current pending balance (overpayment rejected).
+   - Recalculates `paidAmount`, `balanceAmount`, and updates `paymentStatus` atomically.
+   - Triggers dynamic PDF regeneration so the printed bill always reflects latest payments and balance.
+8. **Payment Status Logic**:
+   - `PAID`: `balanceAmount == 0.00`
+   - `UNPAID`: `paidAmount == 0.00` and (current date <= `dueDate` or `dueDate` is null)
+   - `PARTIALLY_PAID`: `paidAmount > 0.00` and `balanceAmount > 0.00` and (current date <= `dueDate`)
+   - `OVERDUE`: `balanceAmount > 0.00` and `dueDate != null` and `dueDate < current date`
+9. **Daily Scheduled Overdue Refresh**:
+   - A background cron task (`InvoiceOverdueScheduler`) runs every day at 12:05 AM server time (`0 5 0 * * ?`) to transition eligible invoices to `OVERDUE`.
+   - Real-time status recalculation also runs dynamically on invoice retrieval so queries are always up to date even before the scheduler fires.
+10. **Server-Side PDF Generation & Download**:
+    - Built using `OpenPDF 2.0.3`.
+    - Rendered to `INVOICE_STORAGE_PATH/invoice-number.pdf` with company branding, tax summary, customer franchise details, item tables, and payment breakdown.
+    - Filesystem paths are kept strictly internal and never exposed to the client.
+    - Protected download endpoint: `GET /api/v1/invoices/{id}/download`. If the PDF file is missing on disk, it is recreated on demand on the fly.
+11. **Multi-Tenancy Isolation**:
+    - `FRANCHISE_OWNER` can view and download invoices and payment records only for their own franchise.
+    - Franchise owners cannot create invoices, update due dates, or record manual payments.
+
+### B. Example Payloads
+
+#### 1. Create GST Invoice (`POST /api/v1/invoices`)
+```json
+{
+  "salesOrderId": "91ba2d31-cf19-45d2-965a-52643a6d71b3",
+  "invoiceType": "GST",
+  "invoiceDate": "2026-09-23",
+  "paymentTerm": "CREDIT",
+  "dueDate": "2026-10-03",
+  "gstRatePercent": 18.00,
+  "notes": "Net 10 payment terms"
+}
+```
+
+#### 2. Create Normal Invoice (`POST /api/v1/invoices`)
+```json
+{
+  "salesOrderId": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+  "invoiceType": "NORMAL",
+  "invoiceDate": "2026-09-23",
+  "paymentTerm": "FULL_PAYMENT",
+  "notes": "Direct counter purchase"
+}
+```
+
+#### 3. Update Credit Due Date (`PATCH /api/v1/invoices/{id}/due-date`)
+```json
+{
+  "dueDate": "2026-10-15",
+  "reason": "Franchise owner requested an approved 12-day payment extension"
+}
+```
+
+#### 4. Record Manual Payment (`POST /api/v1/invoices/{id}/payments`)
+```json
+{
+  "paymentDate": "2026-09-24",
+  "amount": 2500.00,
+  "paymentMode": "UPI",
+  "referenceNumber": "UPI-IND-8849201",
+  "remarks": "Received first installment from franchise owner via QR"
+}
+```
+
+---
+
+## 10. Authentication & Testing Examples
 
 ### A. Login via curl
 ```bash
@@ -367,10 +483,13 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
    - Place sales orders (`POST /api/v1/orders`).
    - Advance order lifecycle: `POST /api/v1/orders/{id}/place` → `POST /api/v1/orders/{id}/prepare` → `POST /api/v1/orders/{id}/deliver`.
    - Inspect stock deduction and `DELIVERY_OUT` movements (`GET /api/v1/inventory/movements`).
+   - Generate GST or Normal invoice for delivered order (`POST /api/v1/invoices`).
+   - Download invoice PDF (`GET /api/v1/invoices/{id}/download`).
+   - Record manual payment installments (`POST /api/v1/invoices/{id}/payments`).
 
 ---
 
-## 10. Flyway Database Migrations
+## 11. Flyway Database Migrations
 
 Database versioning is managed with **Flyway**:
 - `V1__baseline.sql`: Initializes the `application_metadata` tracking table.
@@ -379,17 +498,18 @@ Database versioning is managed with **Flyway**:
 - `V4__add_franchise_reference_to_users.sql`: Adds nullable `franchise_id UUID` foreign key to `users` referencing `franchises(id)` with index.
 - `V5__create_purchase_inventory_tables.sql`: Creates `purchase_entries`, `purchase_items`, `inventory_stock`, and `stock_movements` tables with foreign keys, uniqueness constraints, positive quantity checks, non-negative balance checks, and indexes.
 - `V6__create_sales_orders.sql`: Creates `sales_orders` and `sales_order_items` tables with UUID keys, unique order number format, cascade delete for items, quantity check > 0, unit price check >= 0, unique (order, product) composite constraint, and foreign key indexes.
+- `V7__create_invoices_and_payments.sql`: Creates `invoices`, `invoice_items`, and `payment_collections` tables with UUID primary keys, financial precision `DECIMAL(14,2)`, unique `sales_order_id`, unique `invoice_number`, check constraints on types and terms, cascade delete for items, and indexes.
 
 ---
 
-## 11. Testing
+## 12. Testing
 
 To run the full unit and integration test suite:
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 21) ./mvnw clean test
 ```
 
-Tests run in an isolated in-memory H2 database (PostgreSQL compatibility mode) with Flyway migrations enabled, verifying **74 automated test cases**:
+Tests run in an isolated in-memory H2 database (PostgreSQL compatibility mode) with Flyway migrations enabled, verifying **88 automated test cases**:
 - Application context initialization
 - Public status and Actuator health endpoints
 - Authentication, JWT issuance, and expiration validation
@@ -416,6 +536,17 @@ Tests run in an isolated in-memory H2 database (PostgreSQL compatibility mode) w
 - Deletion rules: Only `DRAFT` orders can be deleted; non-draft orders reject deletion
 - Cancellation: Mandatory cancellation reason, no stock alterations, and rejection of re-cancellation
 - Authorization guards: Only `SUPER_ADMIN` and `MANAGER` can prepare or deliver orders
-
-
-
+- Invoice creation: Allowed strictly on `DELIVERED` orders; rejects non-delivered orders
+- Invoice uniqueness: Enforces exactly one invoice per sales order
+- Normal invoice: 0% GST, subtotal = total, no tax lines
+- GST invoice: Correct GST calculation based on configurable/supplied percentage
+- Credit due date: Automatically assigns `invoiceDate + 10 days` when omitted for `CREDIT`
+- Due date update: Manager can extend due date with mandatory audit reason
+- Partial payment: Decrements balance, increments paid amount, updates status to `PARTIALLY_PAID`
+- Full payment: Settles invoice balance to 0 and transitions status to `PAID`
+- Overpayment prevention: Rejects payment exceeding outstanding balance
+- Overdue evaluation: Invoices with past due dates and pending balance correctly evaluate to `OVERDUE`
+- Multi-tenant security: Franchise Owner can view and download only own franchise invoices
+- Role restriction: Franchise Owner cannot create invoices or record payments
+- PDF generation & download: Generates professional PDF file and streams download safely
+- Item snapshot immutability: Subsequent changes to master product pricing do not alter existing invoice items

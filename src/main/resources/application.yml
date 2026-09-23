@@ -41,6 +41,14 @@ app:
       password: ${INITIAL_ADMIN_PASSWORD:}
   iot:
     api-key: ${APP_IOT_API_KEY}
+  invoice:
+    company-name: ${COMPANY_NAME:Daddy Soda House Pvt Ltd}
+    company-address: ${COMPANY_ADDRESS:Shop 12, Phoenix Marketcity, Viman Nagar, Pune, Maharashtra 411014}
+    company-mobile: ${COMPANY_MOBILE:9999999999}
+    company-email: ${COMPANY_EMAIL:accounts@daddysoda.com}
+    company-gstin: ${COMPANY_GSTIN:27AABCS1429B1Z1}
+    default-gst-rate-percent: ${DEFAULT_GST_RATE_PERCENT:18.00}
+    storage-path: ${INVOICE_STORAGE_PATH:./storage/invoices}
 
 # Default Springdoc settings (disabled by default in base configuration)
 springdoc:

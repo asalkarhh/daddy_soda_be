@@ -27,6 +27,12 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import com.asalkartechworks.daddysodahouse.dto.invoice.InvoiceSummaryDto;
+import com.asalkartechworks.daddysodahouse.entity.InvoicePaymentStatus;
+import com.asalkartechworks.daddysodahouse.entity.InvoiceType;
+import com.asalkartechworks.daddysodahouse.entity.PaymentTerm;
+import com.asalkartechworks.daddysodahouse.service.InvoiceService;
+
 import java.time.LocalDate;
 import java.util.List;
 
@@ -40,6 +46,7 @@ public class FranchiseOwnerSelfServiceController {
 
     private final FranchiseOwnerSelfService selfService;
     private final SalesOrderService salesOrderService;
+    private final InvoiceService invoiceService;
 
     @GetMapping("/franchise")
     @Operation(summary = "Get my franchise", description = "Retrieve active franchise details of the logged-in franchise owner")
@@ -76,5 +83,27 @@ public class FranchiseOwnerSelfServiceController {
         PageResponse<OrderSummaryDto> response = salesOrderService.getMyOrders(
                 principal, status, fromDate, toDate, pageable);
         return ResponseEntity.ok(ApiResponse.success(response, "Franchise sales orders retrieved successfully"));
+    }
+
+    @GetMapping("/invoices")
+    @Operation(
+            summary = "Get my invoices",
+            description = "Retrieve paginated invoice summaries strictly belonging to the logged-in franchise owner's franchise"
+    )
+    public ResponseEntity<ApiResponse<PageResponse<InvoiceSummaryDto>>> getMyInvoices(
+            @RequestParam(required = false) InvoicePaymentStatus paymentStatus,
+            @RequestParam(required = false) InvoiceType invoiceType,
+            @RequestParam(required = false) PaymentTerm paymentTerm,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueTo,
+            @RequestParam(required = false) Boolean overdueOnly,
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        PageResponse<InvoiceSummaryDto> response = invoiceService.getMyInvoices(
+                paymentStatus, invoiceType, paymentTerm, fromDate, toDate,
+                dueFrom, dueTo, overdueOnly, pageable, principal);
+        return ResponseEntity.ok(ApiResponse.success(response, "Franchise invoices retrieved successfully"));
     }
 }

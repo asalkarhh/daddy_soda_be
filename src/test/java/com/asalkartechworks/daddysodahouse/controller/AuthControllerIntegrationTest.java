@@ -4,6 +4,7 @@ import com.asalkartechworks.daddysodahouse.dto.auth.LoginRequestDto;
 import com.asalkartechworks.daddysodahouse.entity.User;
 import com.asalkartechworks.daddysodahouse.entity.UserRole;
 import com.asalkartechworks.daddysodahouse.repository.UserRepository;
+import com.asalkartechworks.daddysodahouse.util.TestDatabaseCleaner;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,21 +34,24 @@ class AuthControllerIntegrationTest {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
+    private final TestDatabaseCleaner databaseCleaner;
 
     @Autowired
     public AuthControllerIntegrationTest(MockMvc mockMvc,
                                          UserRepository userRepository,
                                          PasswordEncoder passwordEncoder,
-                                         ObjectMapper objectMapper) {
+                                         ObjectMapper objectMapper,
+                                         TestDatabaseCleaner databaseCleaner) {
         this.mockMvc = mockMvc;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.objectMapper = objectMapper;
+        this.databaseCleaner = databaseCleaner;
     }
 
     @BeforeEach
     void setUp() {
-        userRepository.deleteAll();
+        databaseCleaner.cleanAll();
 
         // Seed an active SUPER_ADMIN user
         User superAdmin = User.builder()

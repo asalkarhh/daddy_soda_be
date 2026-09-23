@@ -28,6 +28,7 @@ import com.asalkartechworks.daddysodahouse.repository.UserRepository;
 import com.asalkartechworks.daddysodahouse.security.JwtService;
 import com.asalkartechworks.daddysodahouse.security.UserPrincipal;
 import com.asalkartechworks.daddysodahouse.service.InventoryService;
+import com.asalkartechworks.daddysodahouse.util.TestDatabaseCleaner;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,6 +80,7 @@ class SalesOrderIntegrationTest {
     private final JwtService jwtService;
     private final ObjectMapper objectMapper;
     private final InventoryService inventoryService;
+    private final TestDatabaseCleaner databaseCleaner;
 
     private Franchise franchiseA;
     private Franchise franchiseB;
@@ -113,7 +115,8 @@ class SalesOrderIntegrationTest {
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             ObjectMapper objectMapper,
-            InventoryService inventoryService) {
+            InventoryService inventoryService,
+            TestDatabaseCleaner databaseCleaner) {
         this.mockMvc = mockMvc;
         this.salesOrderRepository = salesOrderRepository;
         this.salesOrderItemRepository = salesOrderItemRepository;
@@ -131,23 +134,12 @@ class SalesOrderIntegrationTest {
         this.jwtService = jwtService;
         this.objectMapper = objectMapper;
         this.inventoryService = inventoryService;
+        this.databaseCleaner = databaseCleaner;
     }
 
     @BeforeEach
     void setUp() {
-        // Clean up in reverse foreign key order
-        stockMovementRepository.deleteAll();
-        salesOrderItemRepository.deleteAll();
-        salesOrderRepository.deleteAll();
-        purchaseItemRepository.deleteAll();
-        purchaseEntryRepository.deleteAll();
-        inventoryStockRepository.deleteAll();
-        machineRepository.deleteAll();
-        outletRepository.deleteAll();
-        userRepository.deleteAll();
-        franchiseRepository.deleteAll();
-        productRepository.deleteAll();
-        supplierRepository.deleteAll();
+        databaseCleaner.cleanAll();
 
         // Seed Franchises
         franchiseA = franchiseRepository.save(Franchise.builder()

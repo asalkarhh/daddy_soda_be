@@ -22,6 +22,7 @@ import com.asalkartechworks.daddysodahouse.repository.SupplierRepository;
 import com.asalkartechworks.daddysodahouse.repository.UserRepository;
 import com.asalkartechworks.daddysodahouse.security.JwtService;
 import com.asalkartechworks.daddysodahouse.security.UserPrincipal;
+import com.asalkartechworks.daddysodahouse.util.TestDatabaseCleaner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,6 +63,7 @@ class MasterDataIntegrationTest {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final ObjectMapper objectMapper;
+    private final TestDatabaseCleaner databaseCleaner;
 
     private User superAdminUser;
     private User managerUser;
@@ -82,7 +84,8 @@ class MasterDataIntegrationTest {
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            TestDatabaseCleaner databaseCleaner) {
         this.mockMvc = mockMvc;
         this.franchiseRepository = franchiseRepository;
         this.outletRepository = outletRepository;
@@ -93,17 +96,12 @@ class MasterDataIntegrationTest {
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.objectMapper = objectMapper;
+        this.databaseCleaner = databaseCleaner;
     }
 
     @BeforeEach
     void setUp() {
-        // Clean up in reverse foreign-key order
-        machineRepository.deleteAll();
-        outletRepository.deleteAll();
-        userRepository.deleteAll();
-        franchiseRepository.deleteAll();
-        productRepository.deleteAll();
-        supplierRepository.deleteAll();
+        databaseCleaner.cleanAll();
 
         // Create base franchise for tests
         testFranchise = franchiseRepository.save(Franchise.builder()

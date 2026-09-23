@@ -27,6 +27,14 @@ app:
       expiration-ms: 86400000
   iot:
     api-key: test-iot-key
+  invoice:
+    company-name: Daddy Soda House Pvt Ltd (Test)
+    company-address: Test Street, Pune 411001
+    company-mobile: "9999999999"
+    company-email: test-accounts@daddysoda.com
+    company-gstin: 27AABCS1429B1Z1
+    default-gst-rate-percent: 18.00
+    storage-path: ./target/test-invoices
 
 springdoc:
   api-docs:
