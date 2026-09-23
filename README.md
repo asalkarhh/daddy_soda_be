@@ -134,6 +134,16 @@ export INITIAL_ADMIN_PASSWORD="Admin@12345"
 | `/api/v1/inventory/warehouse/{productId}` | `GET` | SUPER_ADMIN, MANAGER | View product stock balance & top 20 recent stock movements |
 | `/api/v1/inventory/movements` | `GET` | SUPER_ADMIN, MANAGER | List stock movement audit trail (filters, pagination) |
 | `/api/v1/inventory/adjustments` | `POST` | SUPER_ADMIN, MANAGER | Perform manual stock adjustment (ADJUSTMENT_IN or ADJUSTMENT_OUT) |
+| `/api/v1/orders` | `POST` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Create sales order (DRAFT or PLACED) |
+| `/api/v1/orders` | `GET` | SUPER_ADMIN, MANAGER | List sales orders (franchise, status, date filters, pagination) |
+| `/api/v1/orders/{id}` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Get sales order details (franchise owner scoped to own franchise) |
+| `/api/v1/orders/{id}` | `PUT` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Update order (DRAFT or PLACED; franchise owner DRAFT only) |
+| `/api/v1/orders/{id}/place` | `POST` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Transition order from DRAFT to PLACED |
+| `/api/v1/orders/{id}/prepare` | `POST` | SUPER_ADMIN, MANAGER | Mark order as PREPARED |
+| `/api/v1/orders/{id}/deliver` | `POST` | SUPER_ADMIN, MANAGER | Deliver order and deduct warehouse stock atomically |
+| `/api/v1/orders/{id}/cancel` | `POST` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Cancel order (reason mandatory; stock untouched) |
+| `/api/v1/orders/{id}` | `DELETE` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Physically delete DRAFT order only |
+| `/api/v1/my/orders` | `GET` | FRANCHISE_OWNER | Retrieve orders belonging to authenticated owner's franchise |
 | `/swagger-ui.html` | `GET` | Dev Profile Only | Swagger UI interactive documentation |
 | `/v3/api-docs` | `GET` | Dev Profile Only | OpenAPI specification JSON |
 
@@ -244,7 +254,93 @@ Every single quantity change writes an immutable `stock_movements` row capturing
 
 ---
 
-## 8. Authentication & Testing Examples
+## 8. Franchise Sales Orders, Delivery & Stock Deduction (BE-05)
+
+### A. Order Status Lifecycle
+```
+  [DRAFT] ───(place)───> [PLACED] ───(prepare)───> [PREPARED] ───(deliver)───> [DELIVERED]
+     │                      │
+     ├──(cancel)──> [CANCELLED]
+     │                      │
+     └──(delete) [PHYSICAL REMOVAL]
+```
+- **`DRAFT`**: Order is being prepared by franchise owner or manager. Can be edited, placed, cancelled, or deleted. No stock affected.
+- **`PLACED`**: Order confirmed for processing. Can be edited, marked prepared, marked delivered, or cancelled. Cannot be deleted. No stock affected.
+- **`PREPARED`**: Order packed and ready for delivery dispatch. Can be marked delivered. Cannot be edited, cancelled, or deleted. No stock affected.
+- **`DELIVERED`**: Final confirmed state. Warehouse stock is deducted atomically using pessimistic locks. Order becomes strictly **immutable** (cannot be edited, cancelled, or deleted).
+- **`CANCELLED`**: Cancelled order. Reason is mandatory. Stock is untouched.
+
+### B. Core Business Rules
+1. **Franchise Ownership Isolation**:
+   - `FRANCHISE_OWNER` can create and view orders strictly for their own mapped franchise (`/api/v1/my/orders` or `/api/v1/orders/{id}`).
+   - Attempting to order on behalf of another franchise or view another franchise's order is rejected with `400 Bad Request` or `403 Forbidden`.
+   - `SUPER_ADMIN` and `MANAGER` can manage orders for any active franchise.
+2. **Pricing Rules & Snapshot**:
+   - `FRANCHISE_OWNER` cannot manually specify unit prices; unit price is auto-filled from `Product.default_selling_price`.
+   - `SUPER_ADMIN` and `MANAGER` may override unit prices or allow auto-fill from Product Master.
+   - Price snapshot is stored on `sales_order_items` (`unit_price`, `line_total`) to protect historical accounting from future price catalog adjustments.
+3. **Delivery-Time Stock Deduction & Atomic Rollback**:
+   - **No stock reservation** occurs when an order is created, placed, or prepared.
+   - Warehouse stock deduction occurs **strictly at delivery time** (`POST /api/v1/orders/{id}/deliver`).
+   - Evaluated under a pessimistic write lock (`@Lock(LockModeType.PESSIMISTIC_WRITE)`).
+   - Generates one `DELIVERY_OUT` audit record in `stock_movements` per item.
+4. **No Partial Delivery in V1**:
+   - Delivery is full-order only.
+   - If any ordered syrup product has insufficient warehouse stock, the entire delivery is rejected and rolls back atomically (0 stock deducted).
+5. **Deletion & Cancellation Rules**:
+   - Only `DRAFT` orders can be physically deleted.
+   - `DELIVERED` orders cannot be edited, cancelled, or deleted.
+   - Cancellation requires a mandatory reason (`reason` up to 500 characters).
+
+### C. Example Order Payloads
+
+#### 1. Manager Creating Order with Manual Price Override (`POST /api/v1/orders`)
+```json
+{
+  "franchiseId": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+  "orderDate": "2026-09-23",
+  "status": "PLACED",
+  "notes": "Deliver along with next route",
+  "items": [
+    {
+      "productId": "11111111-1111-1111-1111-111111111111",
+      "quantity": 5.000,
+      "unitPrice": 420.00
+    },
+    {
+      "productId": "22222222-2222-2222-2222-222222222222",
+      "quantity": 3.000,
+      "unitPrice": 400.00
+    }
+  ]
+}
+```
+
+#### 2. Franchise Owner Creating Order with Auto-Filled Catalog Pricing (`POST /api/v1/orders`)
+```json
+{
+  "orderDate": "2026-09-23",
+  "status": "PLACED",
+  "notes": "Please deliver this week",
+  "items": [
+    {
+      "productId": "11111111-1111-1111-1111-111111111111",
+      "quantity": 5.000
+    }
+  ]
+}
+```
+
+#### 3. Cancelling Order with Mandatory Reason (`POST /api/v1/orders/{id}/cancel`)
+```json
+{
+  "reason": "Franchise entered order by mistake; requested cancellation"
+}
+```
+
+---
+
+## 9. Authentication & Testing Examples
 
 ### A. Login via curl
 ```bash
@@ -268,12 +364,13 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
    - Create Master entities (Suppliers, Products).
    - Enter supplier purchase bills (`POST /api/v1/purchases`).
    - Query warehouse stock balance (`GET /api/v1/inventory/warehouse`).
-   - Check stock audit movements (`GET /api/v1/inventory/movements`).
-   - Perform manual stock adjustments (`POST /api/v1/inventory/adjustments`).
+   - Place sales orders (`POST /api/v1/orders`).
+   - Advance order lifecycle: `POST /api/v1/orders/{id}/place` → `POST /api/v1/orders/{id}/prepare` → `POST /api/v1/orders/{id}/deliver`.
+   - Inspect stock deduction and `DELIVERY_OUT` movements (`GET /api/v1/inventory/movements`).
 
 ---
 
-## 9. Flyway Database Migrations
+## 10. Flyway Database Migrations
 
 Database versioning is managed with **Flyway**:
 - `V1__baseline.sql`: Initializes the `application_metadata` tracking table.
@@ -281,17 +378,18 @@ Database versioning is managed with **Flyway**:
 - `V3__create_master_data_tables.sql`: Creates `franchises`, `outlets`, `machines`, `products`, and `suppliers` tables with foreign keys, uniqueness constraints, check constraints (`bottle_size_litre > 0`, `default_selling_price >= 0`), and indexes.
 - `V4__add_franchise_reference_to_users.sql`: Adds nullable `franchise_id UUID` foreign key to `users` referencing `franchises(id)` with index.
 - `V5__create_purchase_inventory_tables.sql`: Creates `purchase_entries`, `purchase_items`, `inventory_stock`, and `stock_movements` tables with foreign keys, uniqueness constraints, positive quantity checks, non-negative balance checks, and indexes.
+- `V6__create_sales_orders.sql`: Creates `sales_orders` and `sales_order_items` tables with UUID keys, unique order number format, cascade delete for items, quantity check > 0, unit price check >= 0, unique (order, product) composite constraint, and foreign key indexes.
 
 ---
 
-## 10. Testing
+## 11. Testing
 
 To run the full unit and integration test suite:
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 21) ./mvnw clean test
 ```
 
-Tests run in an isolated in-memory H2 database (PostgreSQL compatibility mode) with Flyway migrations enabled, verifying:
+Tests run in an isolated in-memory H2 database (PostgreSQL compatibility mode) with Flyway migrations enabled, verifying **74 automated test cases**:
 - Application context initialization
 - Public status and Actuator health endpoints
 - Authentication, JWT issuance, and expiration validation
@@ -306,5 +404,18 @@ Tests run in an isolated in-memory H2 database (PostgreSQL compatibility mode) w
 - Purchase cancellation with stock decrement and negative stock prevention guardrails
 - Manual stock adjustments (`ADJUSTMENT_IN` / `ADJUSTMENT_OUT`) and validation against stock going below zero
 - Role protection: `FRANCHISE_OWNER` receiving HTTP 403 on all purchase and warehouse inventory endpoints
+- Sales order creation: Manager price override vs Franchise Owner default price auto-fill
+- Security enforcement: Franchise Owner cannot set unit price or create orders for another franchise
+- Multi-tenancy isolation: Franchise Owner cannot read another franchise's order by ID
+- Franchise self-service: `GET /api/v1/my/orders` returns only orders for the authenticated owner's franchise
+- Order lifecycle progression: `DRAFT` → `PLACED` → `PREPARED` → `DELIVERED`
+- Delivery stock deduction: Atomic deduction on delivery with `DELIVERY_OUT` movements and pessimistic locks
+- Pre-flight stock verification: Insufficient stock halts delivery with full shortage details and zero stock deducted
+- Atomic rollback: Multi-item delivery failure rolls back all stock deductions completely
+- Order immutability: Delivered orders cannot be edited, cancelled, or deleted
+- Deletion rules: Only `DRAFT` orders can be deleted; non-draft orders reject deletion
+- Cancellation: Mandatory cancellation reason, no stock alterations, and rejection of re-cancellation
+- Authorization guards: Only `SUPER_ADMIN` and `MANAGER` can prepare or deliver orders
+
 
 

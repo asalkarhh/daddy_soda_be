@@ -17,6 +17,17 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.asalkartechworks.daddysodahouse.dto.common.PageResponse;
+import com.asalkartechworks.daddysodahouse.dto.order.OrderSummaryDto;
+import com.asalkartechworks.daddysodahouse.entity.SalesOrderStatus;
+import com.asalkartechworks.daddysodahouse.service.SalesOrderService;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -28,6 +39,7 @@ import java.util.List;
 public class FranchiseOwnerSelfServiceController {
 
     private final FranchiseOwnerSelfService selfService;
+    private final SalesOrderService salesOrderService;
 
     @GetMapping("/franchise")
     @Operation(summary = "Get my franchise", description = "Retrieve active franchise details of the logged-in franchise owner")
@@ -48,5 +60,21 @@ public class FranchiseOwnerSelfServiceController {
     public ResponseEntity<ApiResponse<List<MachineResponseDto>>> getMyMachines(@AuthenticationPrincipal UserPrincipal principal) {
         List<MachineResponseDto> response = selfService.getMyMachines(principal);
         return ResponseEntity.ok(ApiResponse.success(response, "Machines retrieved successfully"));
+    }
+
+    @GetMapping("/orders")
+    @Operation(
+            summary = "Get my sales orders",
+            description = "Retrieve paginated sales order history belonging strictly to the logged-in franchise owner's franchise"
+    )
+    public ResponseEntity<ApiResponse<PageResponse<OrderSummaryDto>>> getMyOrders(
+            @RequestParam(required = false) SalesOrderStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        PageResponse<OrderSummaryDto> response = salesOrderService.getMyOrders(
+                principal, status, fromDate, toDate, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response, "Franchise sales orders retrieved successfully"));
     }
 }
