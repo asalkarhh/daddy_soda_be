@@ -1,0 +1,42 @@
+# Example Development Configuration Template
+# Copy this file to application-dev.yml or set corresponding environment variables.
+# DO NOT commit files containing real credentials or secrets to version control.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:daddy_soda_house}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# Swagger / OpenAPI documentation enabled for development
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+# Application custom development secrets/keys (Examples only)
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:dev_only_jwt_secret_key_minimum_256_bits_for_testing_purposes_only}
+      expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  bootstrap:
+    admin:
+      name: ${INITIAL_ADMIN_NAME:Super Administrator}
+      mobile: ${INITIAL_ADMIN_MOBILE:9999999999}
+      email: ${INITIAL_ADMIN_EMAIL:admin@daddysoda.com}
+      password: ${INITIAL_ADMIN_PASSWORD:Admin@12345}
+  iot:
+    api-key: ${APP_IOT_API_KEY:dev_iot_api_key_placeholder}
+
+logging:
+  level:
+    com.asalkartechworks.daddysodahouse: DEBUG
+    org.springframework.security: DEBUG

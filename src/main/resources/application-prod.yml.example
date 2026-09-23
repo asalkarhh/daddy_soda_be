@@ -1,0 +1,44 @@
+# Example Production Configuration Template
+# Provide these values via production environment variables or secure vault/secrets manager.
+# DO NOT hardcode production secrets, passwords, or endpoints here.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      connection-timeout: 20000
+
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+
+# Disable Swagger / OpenAPI in production
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+# Secure actuator endpoints in production
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: WARN
+    com.asalkartechworks.daddysodahouse: INFO
+    org.springframework.web: WARN
+    org.hibernate: ERROR
