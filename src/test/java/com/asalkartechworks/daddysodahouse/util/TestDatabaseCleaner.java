@@ -15,6 +15,9 @@ public class TestDatabaseCleaner {
     private final JdbcTemplate jdbcTemplate;
 
     public void cleanAll() {
+        jdbcTemplate.execute("DELETE FROM manual_daily_flavour_sales");
+        jdbcTemplate.execute("DELETE FROM iot_event_items");
+        jdbcTemplate.execute("DELETE FROM iot_events");
         jdbcTemplate.execute("DELETE FROM enquiries");
         jdbcTemplate.execute("DELETE FROM payment_collections");
         jdbcTemplate.execute("DELETE FROM invoice_items");

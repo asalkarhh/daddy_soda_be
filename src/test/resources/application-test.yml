@@ -27,6 +27,7 @@ app:
       expiration-ms: 86400000
   iot:
     api-key: test-iot-key
+    offline-threshold-minutes: 30
   invoice:
     company-name: Daddy Soda House Pvt Ltd (Test)
     company-address: Test Street, Pune 411001

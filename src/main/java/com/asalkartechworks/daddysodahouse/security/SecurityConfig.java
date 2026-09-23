@@ -80,6 +80,9 @@ public class SecurityConfig {
                 // Auth public endpoints
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll();
 
+                // IoT machine-to-server ingestion endpoint (authenticated via X-API-KEY header, not JWT)
+                auth.requestMatchers(HttpMethod.POST, "/api/v1/iot/events").permitAll();
+
                 // Auth authenticated endpoints
                 auth.requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout").authenticated();
 

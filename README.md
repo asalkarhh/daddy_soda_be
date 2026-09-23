@@ -28,6 +28,7 @@ Database credentials, JWT settings, and initial admin bootstrap configuration ar
 | `JWT_SECRET` | Secret key for HMAC-SHA256 JWT signing (min 256 bits) | `dev_only_jwt_secret_key_minimum_256_bits_for_testing_purposes_only` |
 | `JWT_EXPIRATION_MS` | JWT expiration duration in milliseconds (Default: `86400000` / 24h) | `86400000` |
 | `APP_IOT_API_KEY` | Secret API key for IoT telemetry authentication | `dev_iot_api_key_placeholder` |
+| `IOT_OFFLINE_THRESHOLD_MINUTES` | Inactivity window (in minutes) before machine is marked OFFLINE (Default: `30`) | `30` |
 | `COMPANY_NAME` | Company name shown on invoice header | `Daddy Soda House Pvt Ltd` |
 | `COMPANY_ADDRESS` | Company address printed on invoice PDF | `123 Beverage Park, Industrial Zone, Pune, Maharashtra 411001` |
 | `COMPANY_MOBILE` | Company contact phone printed on invoice PDF | `+91 98220 00000` |
@@ -171,6 +172,16 @@ export INITIAL_ADMIN_PASSWORD="Admin@12345"
 | `/api/v1/reports/monthly/orders/download` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Download monthly sales orders as CSV (strict YYYY-MM; scoped for owner) |
 | `/api/v1/reports/monthly/invoices/download` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Download monthly invoices as CSV (strict YYYY-MM; scoped for owner) |
 | `/api/v1/reports/monthly/dues/download` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Download monthly credit dues as CSV (strict YYYY-MM; scoped for owner) |
+| `/api/v1/iot/events` | `POST` | Public (X-API-KEY header) | Ingest IoT soda machine drink dispense or heartbeat event |
+| `/api/v1/iot/events` | `GET` | SUPER_ADMIN, MANAGER | Search and filter IoT telemetry event records (paginated) |
+| `/api/v1/iot/events/{id}` | `GET` | SUPER_ADMIN, MANAGER | View complete IoT event details with line items and raw JSON payload |
+| `/api/v1/iot/machines/status` | `GET` | SUPER_ADMIN, MANAGER | View connectivity status (ONLINE, OFFLINE, NEVER_CONNECTED) for all active machines |
+| `/api/v1/manual-sales` | `POST` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Record manual end-of-day counter reading for flavour sales |
+| `/api/v1/manual-sales` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Search and filter manual daily sales entries (scoped for owner) |
+| `/api/v1/manual-sales/{id}` | `PUT` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Correct manual daily sales entry (scoped for owner) |
+| `/api/v1/manual-sales/{id}` | `DELETE` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Delete manual daily sales entry (scoped for owner) |
+| `/api/v1/reports/consumption/summary` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Retrieve aggregated IoT syrup/soda usage and manual sales numbers |
+| `/api/v1/reports/consumption/download` | `GET` | SUPER_ADMIN, MANAGER, FRANCHISE_OWNER | Download consumption telemetry and manual sales data as CSV |
 | `/swagger-ui.html` | `GET` | Dev Profile Only | Swagger UI interactive documentation |
 | `/v3/api-docs` | `GET` | Dev Profile Only | OpenAPI specification JSON |
 
@@ -558,7 +569,149 @@ All reports stream `text/csv; charset=UTF-8` with `Content-Disposition: attachme
 
 ---
 
-## 11. Authentication & Testing Examples
+## 11. IoT Soda Machine Integration & Manual Daily Sales Fallback (BE-08)
+
+This module implements soda machine telemetry ingestion, connectivity monitoring, manual end-of-day counter sales fallback, and consolidated consumption reporting.
+
+### A. Technical IoT Vendor Integration Guide
+Soda machines and vendor gateways communicate with the backend exclusively via machine-to-server HTTPS API calls.
+
+> [!IMPORTANT]
+> - **Production Protocol**: Dispense and heartbeat telemetry **must always communicate over HTTPS** in production.
+> - **Vendor Credential Boundary**: IoT vendors receive **only** the API endpoint URL, secret API key, and payload specification. Database credentials, server/VPS credentials, SSH keys, or cloud hosting logins must **never** be shared with vendors or third parties.
+> - **Header Authentication**: Telemetry endpoints require the `X-API-KEY` header. No JWT authentication is needed.
+
+#### 1. Ingestion Endpoint
+- **URL**: `POST https://your-domain.com/api/v1/iot/events`
+- **Headers**:
+  ```http
+  Content-Type: application/json
+  X-API-KEY: <configured APP_IOT_API_KEY>
+  ```
+
+#### 2. Sample Payloads
+
+##### A. Drink Dispensed Event (`DRINK_DISPENSED`)
+Dispatched by the machine whenever a customer drink is prepared and dispensed:
+```json
+{
+  "eventId": "EVT-20260923-000101",
+  "machineId": "MACH-001",
+  "deviceId": "DEV-001",
+  "franchiseId": "FRAN-001",
+  "eventTime": "2026-09-23T15:10:00+05:30",
+  "eventType": "DRINK_DISPENSED",
+  "drinkName": "Orange Soda",
+  "items": [
+    {
+      "itemType": "SYRUP",
+      "itemCode": "SYR-ORG",
+      "itemName": "Orange Syrup",
+      "lineNo": 1,
+      "quantityMl": 30.000
+    },
+    {
+      "itemType": "SODA",
+      "itemCode": "RAW_SODA",
+      "itemName": "Raw Soda",
+      "lineNo": 9,
+      "quantityMl": 220.000
+    }
+  ],
+  "status": "SUCCESS"
+}
+```
+
+##### B. Heartbeat Event (`HEARTBEAT`)
+Dispatched periodically (recommended interval: **every 10 to 15 minutes**) to report machine liveness and telemetry health:
+```json
+{
+  "eventId": "EVT-HB-20260923-150000",
+  "machineId": "MACH-001",
+  "deviceId": "DEV-001",
+  "franchiseId": "FRAN-001",
+  "eventTime": "2026-09-23T15:00:00+05:30",
+  "eventType": "HEARTBEAT",
+  "status": "SUCCESS"
+}
+```
+
+#### 3. Expected Responses & Status Codes
+
+##### Success Response (HTTP 200)
+```json
+{
+  "success": true,
+  "message": "IoT event processed successfully",
+  "data": {
+    "eventId": "EVT-20260923-000101",
+    "duplicate": false,
+    "machineCode": "MACH-001",
+    "receivedAt": "2026-09-23T15:10:01.120Z"
+  },
+  "timestamp": "2026-09-23T15:10:01"
+}
+```
+
+##### Idempotent Duplicate Response (HTTP 200)
+If the device retries a transmission with an already-processed `eventId`, the server immediately acknowledges it without creating duplicate records or altering totals:
+```json
+{
+  "success": true,
+  "message": "Duplicate event already processed",
+  "data": {
+    "eventId": "EVT-20260923-000101",
+    "duplicate": true
+  },
+  "timestamp": "2026-09-23T15:10:05"
+}
+```
+
+##### Validation / Mapping Failure (HTTP 400)
+Returned if `machineId`, `deviceId`, or `franchiseId` do not match active master records, or if required items are missing:
+```json
+{
+  "success": false,
+  "message": "Device ID 'DEV-999' does not match machine 'MACH-001'",
+  "data": null,
+  "timestamp": "2026-09-23T15:10:02"
+}
+```
+
+##### Unauthorized (HTTP 401)
+Returned if `X-API-KEY` header is missing or does not match the configured secret:
+```json
+{
+  "success": false,
+  "message": "Invalid or missing API key",
+  "data": null,
+  "timestamp": "2026-09-23T15:10:02"
+}
+```
+
+### B. Machine Connectivity Monitoring & Limitations
+- Tracked via `GET /api/v1/iot/machines/status` for `SUPER_ADMIN` and `MANAGER`.
+- **Status Classification**:
+  - `ONLINE`: `last_seen_at` is within `IOT_OFFLINE_THRESHOLD_MINUTES` (default: 30 minutes).
+  - `OFFLINE`: `last_seen_at` is older than the configured threshold.
+  - `NEVER_CONNECTED`: Machine has never transmitted a heartbeat or dispense event.
+- **Important Limitation**: Connectivity status indicates only whether data was recently received. It does not conclusively prove whether the physical dispensing mechanism has mechanical failure or whether counter sales were simply low during quiet periods.
+
+### C. Manual Daily Flavour-Wise Sales Fallback
+When a machine operates offline or IoT gateway transmission is temporarily disrupted, the franchise owner reads the small hardware counter display at day-end (e.g., 10 PM) and records sales numbers manually.
+- **Endpoints**: `POST`, `GET`, `PUT`, `DELETE` on `/api/v1/manual-sales`.
+- **Multi-Tenancy Guardrail**: A `FRANCHISE_OWNER` can enter and view data **only** for machines belonging to their own franchise. Cross-franchise machine access is rejected with HTTP 400.
+- **Uniqueness**: Only one entry is allowed per `(machine, product, salesDate)`. Duplicate entries are rejected.
+- **Future Dates**: Entries cannot have a `salesDate` in the future.
+
+### D. Unit Separation & Zero Retail Pricing Rules
+- **Volume Separation**: Machine telemetry quantities are tracked strictly in **Millilitres (`ML`)**. Manual counter readings are tracked in **`GLASSES`** (or `ML`). The system keeps these metrics completely distinct in consumption summaries and CSV exports.
+- **Zero Inventory Side Effects**: IoT dispenses and manual sales entries are for **reporting and visibility only**. They do **not** decrement warehouse inventory or franchise stock balances in V1.
+- **No Retail Revenue Calculations**: The backend tracks raw syrup consumption, billing invoices, and stock movements. Retail customer pricing and dispensing cash receipts are intentionally not computed in this module.
+
+---
+
+## 12. Authentication & Testing Examples
 
 ### A. Login via curl
 ```bash
@@ -570,16 +723,24 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
   }'
 ```
 
-### B. Public Website Enquiry Submission via curl
+### B. Submit IoT Machine Event via curl
 ```bash
-curl -X POST http://localhost:8080/api/v1/public/enquiries \
+curl -X POST http://localhost:8080/api/v1/iot/events \
   -H "Content-Type: application/json" \
+  -H "X-API-KEY: dev_iot_api_key_placeholder" \
   -d '{
-    "fullName": "Amit Patil",
-    "mobile": "9876543210",
-    "email": "amit@example.com",
-    "city": "Pune",
-    "message": "I want details about soda franchise opportunity."
+    "eventId": "EVT-TEST-001",
+    "machineId": "MACH-001",
+    "deviceId": "DEV-001",
+    "franchiseId": "FRAN-001",
+    "eventTime": "2026-09-23T16:00:00Z",
+    "eventType": "DRINK_DISPENSED",
+    "drinkName": "Orange Soda",
+    "status": "SUCCESS",
+    "items": [
+      { "itemType": "SYRUP", "itemCode": "SYR-ORG", "quantityMl": 30 },
+      { "itemType": "SODA", "itemCode": "RAW_SODA", "quantityMl": 220 }
+    ]
   }'
 ```
 
@@ -592,21 +753,23 @@ curl -X POST http://localhost:8080/api/v1/public/enquiries \
 3. Log in with `POST /api/v1/auth/login` to obtain a JWT.
 4. Click the green **Authorize** button in Swagger UI and input: `Bearer <your_token>`.
 5. Execute operations across all modules:
-   - Create Master entities (Suppliers, Products).
+   - Create Master entities (Suppliers, Products, Franchises, Outlets, Machines).
    - Enter supplier purchase bills (`POST /api/v1/purchases`).
    - Query warehouse stock balance (`GET /api/v1/inventory/warehouse`).
    - Place sales orders (`POST /api/v1/orders`).
    - Deliver orders and inspect stock deduction (`POST /api/v1/orders/{id}/deliver`).
    - Generate GST or Normal invoice (`POST /api/v1/invoices`).
    - Download invoice PDF (`GET /api/v1/invoices/{id}/download`).
-   - Record manual payment installments (`POST /api/v1/invoices/{id}/payments`).
    - View operational dashboard summary (`GET /api/v1/dashboard/summary`).
    - Query outstanding dues with severity indicators (`GET /api/v1/dashboard/dues`).
-   - Download monthly CSV reports (`GET /api/v1/reports/monthly/**/download`).
+   - Ingest IoT telemetry events (`POST /api/v1/iot/events` using `X-API-KEY`).
+   - Query machine connection status (`GET /api/v1/iot/machines/status`).
+   - Record manual daily flavour sales (`POST /api/v1/manual-sales`).
+   - Query and download consumption report (`GET /api/v1/reports/consumption/**`).
 
 ---
 
-## 12. Flyway Database Migrations
+## 13. Flyway Database Migrations
 
 Database versioning is managed with **Flyway**:
 - `V1__baseline.sql`: Initializes the `application_metadata` tracking table.
@@ -617,17 +780,19 @@ Database versioning is managed with **Flyway**:
 - `V6__create_sales_orders.sql`: Creates `sales_orders` and `sales_order_items` tables with UUID keys, unique order number format, cascade delete for items, quantity check > 0, unit price check >= 0, unique (order, product) composite constraint, and foreign key indexes.
 - `V7__create_invoices_and_payments.sql`: Creates `invoices`, `invoice_items`, and `payment_collections` tables with UUID primary keys, financial precision `DECIMAL(14,2)`, unique `sales_order_id`, unique `invoice_number`, check constraints on types and terms, cascade delete for items, and indexes.
 - `V8__create_enquiries.sql`: Creates `enquiries` table with UUID primary key, unique sequential enquiry number (`ENQ-YYYYMM-XXXXX`), status check (`NEW`, `CONTACTED`, `CLOSED`), contact timestamp, audit columns, and indexes on `status`, `mobile`, `created_at`, and `enquiry_number`.
+- `V9__create_iot_events.sql`: Creates `iot_events` and `iot_event_items` tables with UUID primary keys, unique `external_event_id`, PostgreSQL `JSONB` raw payload, check constraints on types and positive quantities, and indexes on machine, franchise, event time, and item codes.
+- `V10__create_manual_daily_flavour_sales.sql`: Creates `manual_daily_flavour_sales` table with UUID primary key, composite unique constraint `(machine_id, product_id, sales_date)`, check constraints on positive quantity and units (`GLASSES`, `ML`), and foreign key indexes.
 
 ---
 
-## 13. Testing
+## 14. Testing
 
 To run the full unit and integration test suite:
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 21) ./mvnw clean test
 ```
 
-Tests run in an isolated in-memory H2 database (PostgreSQL compatibility mode) with Flyway migrations enabled, verifying **100 automated test cases**:
+Tests run in an isolated in-memory H2 database (PostgreSQL compatibility mode) with Flyway migrations enabled, verifying **116 automated test cases**:
 - Application context initialization
 - Public status and Actuator health endpoints
 - Authentication, JWT issuance, and expiration validation
@@ -680,4 +845,21 @@ Tests run in an isolated in-memory H2 database (PostgreSQL compatibility mode) w
 - Report month validation: Rejects invalid month strings (must be `YYYY-MM`) with HTTP 400
 - CSV injection protection: Neutralizes spreadsheet formula triggers (`=+-@\t\r`) by prefixing with `'`
 - Role restrictions: Franchise Owner receives HTTP 403 on enquiry management and operational dashboard summary
+- Valid DRINK_DISPENSED event saved with item rows and raw JSON payload
+- Valid HEARTBEAT updates machine last_seen_at
+- Invalid API key returns HTTP 401 Unauthorized
+- Missing API key returns HTTP 401 Unauthorized
+- Invalid machine/device/franchise mapping is rejected with HTTP 400 Bad Request
+- Duplicate eventId is idempotent and does not create duplicate events (returns HTTP 200)
+- Unknown or inactive syrup item code is rejected with HTTP 400 Bad Request
+- Missing SYRUP or SODA item for DRINK_DISPENSED is rejected with HTTP 400 Bad Request
+- IoT event does not alter warehouse inventory stock
+- Machine connection status evaluates ONLINE, OFFLINE, and NEVER_CONNECTED correctly
+- Franchise Owner can enter manual sales only for their own machine
+- Duplicate manual machine/product/date entry is rejected with HTTP 400
+- Franchise Owner is blocked from viewing raw IoT event list (HTTP 403 Forbidden)
+- Consumption summary calculates flavour-wise usage and usage percentages accurately
+- Manual GLASSES quantity is kept separate from IoT ML usage in summary and CSV exports
+- Franchise Owner cannot download another franchise's consumption data (multi-tenancy isolation)
+
 

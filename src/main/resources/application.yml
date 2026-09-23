@@ -41,6 +41,7 @@ app:
       password: ${INITIAL_ADMIN_PASSWORD:}
   iot:
     api-key: ${APP_IOT_API_KEY}
+    offline-threshold-minutes: ${IOT_OFFLINE_THRESHOLD_MINUTES:30}
   invoice:
     company-name: ${COMPANY_NAME:Daddy Soda House Pvt Ltd}
     company-address: ${COMPANY_ADDRESS:Shop 12, Phoenix Marketcity, Viman Nagar, Pune, Maharashtra 411014}
