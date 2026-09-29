@@ -1,0 +1,27 @@
+[Unit]
+Description=Daddy Soda House Spring Boot Backend Service
+After=syslog.target network.target postgresql.service
+
+[Service]
+Type=simple
+User=daddysoda
+Group=daddysoda
+WorkingDirectory=/opt/daddysoda/backend
+EnvironmentFile=/opt/daddysoda/backend/.env
+ExecStart=/usr/bin/java -Xms512m -Xmx1024m -Dspring.profiles.active=prod -jar /opt/daddysoda/backend/daddy-soda-house-backend-1.0.0-SNAPSHOT.jar
+
+# Restart policies
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daddy-soda-backend
+
+# Security sandbox settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/daddysoda/backend/storage /var/log/daddysoda
+
+[Install]
+WantedBy=multi-user.target

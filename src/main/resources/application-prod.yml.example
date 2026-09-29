@@ -19,6 +19,11 @@ spring:
     hibernate:
       ddl-auto: validate
 
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
+
 # Disable Swagger / OpenAPI in production
 springdoc:
   api-docs:
