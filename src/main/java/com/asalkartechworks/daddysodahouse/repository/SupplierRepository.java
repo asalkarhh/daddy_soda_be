@@ -21,9 +21,9 @@ public interface SupplierRepository extends JpaRepository<Supplier, UUID> {
     @Query("SELECT s FROM Supplier s WHERE " +
            "(:active IS NULL OR s.isActive = :active) AND " +
            "(:search IS NULL OR :search = '' OR " +
-           "LOWER(s.supplierName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(s.supplierCode) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(s.contactPersonName) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(s.supplierName) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')) OR " +
+           "LOWER(s.supplierCode) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')) OR " +
+           "LOWER(s.contactPersonName) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')))")
     Page<Supplier> searchSuppliers(
             @Param("search") String search,
             @Param("active") Boolean active,

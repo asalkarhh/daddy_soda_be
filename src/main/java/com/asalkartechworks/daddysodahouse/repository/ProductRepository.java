@@ -23,8 +23,8 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     @Query("SELECT p FROM Product p WHERE " +
            "(:active IS NULL OR p.isActive = :active) AND " +
            "(:search IS NULL OR :search = '' OR " +
-           "LOWER(p.flavourName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(p.itemCode) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(p.flavourName) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')) OR " +
+           "LOWER(p.itemCode) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')))")
     Page<Product> searchProducts(
             @Param("search") String search,
             @Param("active") Boolean active,
@@ -35,8 +35,8 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
            "(:productId IS NULL OR p.id = :productId) AND " +
            "(:active IS NULL OR p.isActive = :active) AND " +
            "(:search IS NULL OR :search = '' OR " +
-           "LOWER(p.flavourName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(p.itemCode) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
+           "LOWER(p.flavourName) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')) OR " +
+           "LOWER(p.itemCode) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%'))) AND " +
            "(:stockStatus IS NULL OR " +
            "(:stockStatus = 'IN_STOCK' AND COALESCE(s.availableQuantity, 0) > 0) OR " +
            "(:stockStatus = 'OUT_OF_STOCK' AND COALESCE(s.availableQuantity, 0) <= 0))")

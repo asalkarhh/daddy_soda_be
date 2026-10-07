@@ -27,10 +27,10 @@ public interface EnquiryRepository extends JpaRepository<Enquiry, UUID> {
         SELECT e FROM Enquiry e
         WHERE (:status IS NULL OR e.status = :status)
           AND (:search IS NULL OR (
-                LOWER(e.fullName) LIKE LOWER(CONCAT('%', :search, '%'))
-                OR e.mobile LIKE CONCAT('%', :search, '%')
-                OR LOWER(e.city) LIKE LOWER(CONCAT('%', :search, '%'))
-                OR LOWER(e.enquiryNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+                LOWER(e.fullName) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%'))
+                OR e.mobile LIKE CONCAT('%', CAST(:search AS String), '%')
+                OR LOWER(e.city) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%'))
+                OR LOWER(e.enquiryNumber) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%'))
           ))
           AND (:fromDate IS NULL OR e.createdAt >= :fromDate)
           AND (:toDate IS NULL OR e.createdAt <= :toDate)

@@ -29,8 +29,8 @@ public interface PurchaseEntryRepository extends JpaRepository<PurchaseEntry, UU
     @Query("SELECT p FROM PurchaseEntry p WHERE " +
            "(:supplierId IS NULL OR p.supplier.id = :supplierId) AND " +
            "(:status IS NULL OR p.status = :status) AND " +
-           "(:purchaseNumber IS NULL OR LOWER(p.purchaseNumber) LIKE LOWER(CONCAT('%', :purchaseNumber, '%'))) AND " +
-           "(:supplierBillNumber IS NULL OR LOWER(p.supplierBillNumber) LIKE LOWER(CONCAT('%', :supplierBillNumber, '%'))) AND " +
+           "(:purchaseNumber IS NULL OR LOWER(p.purchaseNumber) LIKE LOWER(CONCAT('%', CAST(:purchaseNumber AS String), '%'))) AND " +
+           "(:supplierBillNumber IS NULL OR LOWER(p.supplierBillNumber) LIKE LOWER(CONCAT('%', CAST(:supplierBillNumber AS String), '%'))) AND " +
            "(:fromDate IS NULL OR p.billDate >= :fromDate) AND " +
            "(:toDate IS NULL OR p.billDate <= :toDate)")
     Page<PurchaseEntry> searchPurchases(

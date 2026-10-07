@@ -27,7 +27,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID> {
     @Query("SELECT o FROM SalesOrder o WHERE " +
            "(:franchiseId IS NULL OR o.franchise.id = :franchiseId) AND " +
            "(:status IS NULL OR o.status = :status) AND " +
-           "(:orderNumber IS NULL OR LOWER(o.orderNumber) LIKE LOWER(CONCAT('%', :orderNumber, '%'))) AND " +
+           "(:orderNumber IS NULL OR LOWER(o.orderNumber) LIKE LOWER(CONCAT('%', CAST(:orderNumber AS String), '%'))) AND " +
            "(:fromDate IS NULL OR o.orderDate >= :fromDate) AND " +
            "(:toDate IS NULL OR o.orderDate <= :toDate)")
     Page<SalesOrder> searchOrders(

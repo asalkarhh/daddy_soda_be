@@ -23,10 +23,10 @@ public interface FranchiseRepository extends JpaRepository<Franchise, UUID> {
     @Query("SELECT f FROM Franchise f WHERE " +
            "(:active IS NULL OR f.isActive = :active) AND " +
            "(:search IS NULL OR :search = '' OR " +
-           "LOWER(f.businessName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(f.ownerName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(f.franchiseCode) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(f.city) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(f.businessName) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')) OR " +
+           "LOWER(f.ownerName) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')) OR " +
+           "LOWER(f.franchiseCode) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')) OR " +
+           "LOWER(f.city) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')))")
     Page<Franchise> searchFranchises(
             @Param("search") String search,
             @Param("active") Boolean active,

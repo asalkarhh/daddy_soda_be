@@ -40,9 +40,9 @@ public interface MachineRepository extends JpaRepository<Machine, UUID> {
            "(:franchiseId IS NULL OR m.outlet.franchise.id = :franchiseId) AND " +
            "(:active IS NULL OR m.isActive = :active) AND " +
            "(:search IS NULL OR :search = '' OR " +
-           "LOWER(m.machineName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(m.machineCode) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(m.deviceId) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(m.machineName) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')) OR " +
+           "LOWER(m.machineCode) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')) OR " +
+           "LOWER(m.deviceId) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')))")
     Page<Machine> searchMachines(
             @Param("outletId") UUID outletId,
             @Param("franchiseId") UUID franchiseId,

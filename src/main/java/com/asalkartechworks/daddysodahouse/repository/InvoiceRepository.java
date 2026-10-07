@@ -34,7 +34,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
         JOIN so.franchise f
         WHERE (:franchiseId IS NULL OR f.id = :franchiseId)
           AND (:salesOrderId IS NULL OR so.id = :salesOrderId)
-          AND (:invoiceNumber IS NULL OR LOWER(i.invoiceNumber) LIKE LOWER(CONCAT('%', :invoiceNumber, '%')))
+          AND (:invoiceNumber IS NULL OR LOWER(i.invoiceNumber) LIKE LOWER(CONCAT('%', CAST(:invoiceNumber AS String), '%')))
           AND (:invoiceType IS NULL OR i.invoiceType = :invoiceType)
           AND (:paymentStatus IS NULL OR i.paymentStatus = :paymentStatus)
           AND (:paymentTerm IS NULL OR i.paymentTerm = :paymentTerm)

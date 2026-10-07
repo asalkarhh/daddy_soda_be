@@ -31,9 +31,9 @@ public interface OutletRepository extends JpaRepository<Outlet, UUID> {
            "(:franchiseId IS NULL OR o.franchise.id = :franchiseId) AND " +
            "(:active IS NULL OR o.isActive = :active) AND " +
            "(:search IS NULL OR :search = '' OR " +
-           "LOWER(o.outletName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(o.outletCode) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(o.city) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(o.outletName) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')) OR " +
+           "LOWER(o.outletCode) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')) OR " +
+           "LOWER(o.city) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')))")
     Page<Outlet> searchOutlets(
             @Param("franchiseId") UUID franchiseId,
             @Param("search") String search,
