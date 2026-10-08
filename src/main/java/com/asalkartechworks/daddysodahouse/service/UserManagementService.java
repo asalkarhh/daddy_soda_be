@@ -98,6 +98,17 @@ public class UserManagementService {
             }
         }
 
+        // Validate mobile uniqueness if provided and changed
+        if (StringUtils.hasText(dto.getMobile())) {
+            String newMobile = dto.getMobile().trim();
+            if (!newMobile.equals(user.getMobile())) {
+                if (userRepository.existsByMobile(newMobile)) {
+                    throw new BadRequestException("Mobile number already in use: " + newMobile);
+                }
+                user.setMobile(newMobile);
+            }
+        }
+
         // Validate email uniqueness if changed
         if (StringUtils.hasText(dto.getEmail())) {
             String newEmail = dto.getEmail().trim();
@@ -109,6 +120,11 @@ public class UserManagementService {
             user.setEmail(newEmail);
         } else {
             user.setEmail(null);
+        }
+
+        // Update password if a non-empty temporary password was provided
+        if (StringUtils.hasText(dto.getPassword())) {
+            user.setPasswordHash(passwordEncoder.encode(dto.getPassword().trim()));
         }
 
         Franchise franchise = null;

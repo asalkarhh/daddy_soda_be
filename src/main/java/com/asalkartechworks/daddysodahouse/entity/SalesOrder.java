@@ -65,9 +65,6 @@ public class SalesOrder {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    @Column(name = "update_reason", columnDefinition = "TEXT")
-    private String updateReason;
-
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
 

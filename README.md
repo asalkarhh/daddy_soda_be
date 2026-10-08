@@ -22,7 +22,7 @@ Database credentials, JWT settings, and initial admin bootstrap configuration ar
 |---|---|---|
 | `DB_HOST` | Hostname of the PostgreSQL server | `localhost` |
 | `DB_PORT` | Port number of the PostgreSQL server | `5432` |
-| `DB_NAME` | PostgreSQL database name | `daddy_soda_house` |
+| `DB_NAME` | PostgreSQL database name | `Daddy_soda_house` |
 | `DB_USERNAME` | Database username | `postgres` |
 | `DB_PASSWORD` | Database password | `postgres` |
 | `JWT_SECRET` | Secret key for HMAC-SHA256 JWT signing (min 256 bits) | `dev_only_jwt_secret_key_minimum_256_bits_for_testing_purposes_only` |
@@ -32,14 +32,14 @@ Database credentials, JWT settings, and initial admin bootstrap configuration ar
 | `COMPANY_NAME` | Company name shown on invoice header | `Daddy Soda House Pvt Ltd` |
 | `COMPANY_ADDRESS` | Company address printed on invoice PDF | `123 Beverage Park, Industrial Zone, Pune, Maharashtra 411001` |
 | `COMPANY_MOBILE` | Company contact phone printed on invoice PDF | `+91 98220 00000` |
-| `COMPANY_EMAIL` | Company support email printed on invoice PDF | `billing@daddysodahouse.com` |
+| `COMPANY_EMAIL` | Company support email printed on invoice PDF | `billing@Daddysodahouse.com` |
 | `COMPANY_GSTIN` | Company GSTIN (printed only on GST invoices) | `27AAAAA0000A1Z5` |
 | `DEFAULT_GST_RATE_PERCENT` | Default GST rate percent when omitted in GST invoices | `18.00` |
 | `INVOICE_STORAGE_PATH` | Local directory for storing generated invoice PDFs | `./storage/invoices` |
 | `WHATSAPP_ENQUIRY_NUMBER` | Target phone number (e.g. 919876543210) for website enquiry WhatsApp click-to-chat URL | `919876543210` |
 | `INITIAL_ADMIN_NAME` | *(Optional)* Full name for first SUPER_ADMIN account | `Super Administrator` |
 | `INITIAL_ADMIN_MOBILE` | *(Optional)* 10-digit mobile number for first SUPER_ADMIN | `9999999999` |
-| `INITIAL_ADMIN_EMAIL` | *(Optional)* Email for first SUPER_ADMIN | `admin@daddysoda.com` |
+| `INITIAL_ADMIN_EMAIL` | *(Optional)* Email for first SUPER_ADMIN | `admin@Daddysoda.com` |
 | `INITIAL_ADMIN_PASSWORD` | *(Optional)* Plaintext password (will be BCrypt hashed) | `Admin@12345` |
 | `PORT` | *(Optional)* HTTP server port (Default: `8080`) | `8080` |
 
@@ -47,7 +47,7 @@ Database credentials, JWT settings, and initial admin bootstrap configuration ar
 
 ## 3. How to Start PostgreSQL Using Docker Compose
 
-A dedicated `docker-compose.yml` file is provided to run PostgreSQL 16 Alpine with persistent storage in a Docker volume named `daddy_soda_pgdata`.
+A dedicated `docker-compose.yml` file is provided to run PostgreSQL 16 Alpine with persistent storage in a Docker volume named `Daddy_soda_pgdata`.
 
 Start PostgreSQL container:
 ```bash
@@ -86,7 +86,7 @@ export JWT_EXPIRATION_MS=86400000
 export APP_IOT_API_KEY=dev_iot_api_key_placeholder
 export INITIAL_ADMIN_NAME="Super Administrator"
 export INITIAL_ADMIN_MOBILE="9999999999"
-export INITIAL_ADMIN_EMAIL="admin@daddysoda.com"
+export INITIAL_ADMIN_EMAIL="admin@Daddysoda.com"
 export INITIAL_ADMIN_PASSWORD="Admin@12345"
 
 ./mvnw spring-boot:run

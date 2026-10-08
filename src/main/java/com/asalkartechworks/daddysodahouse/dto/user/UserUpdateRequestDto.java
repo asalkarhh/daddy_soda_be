@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,10 +26,18 @@ public class UserUpdateRequestDto {
     @Schema(description = "Full name of the user", example = "Rahul S. Patil")
     private String fullName;
 
+    @Pattern(regexp = "^[0-9]{10}$", message = "Mobile number must be exactly 10 digits")
+    @Schema(description = "10-digit primary mobile number (optional update)", example = "9876543210")
+    private String mobile;
+
     @Email(message = "Email must be valid")
     @Size(max = 150, message = "Email cannot exceed 150 characters")
     @Schema(description = "Email address (optional)", example = "rahul.patil@example.com")
     private String email;
+
+    @Size(min = 6, message = "Password must be at least 6 characters")
+    @Schema(description = "Optional new password for user password reset", example = "NewPassword@123")
+    private String password;
 
     @NotNull(message = "User role is mandatory")
     @Schema(description = "Role: SUPER_ADMIN, MANAGER, or FRANCHISE_OWNER", example = "FRANCHISE_OWNER")

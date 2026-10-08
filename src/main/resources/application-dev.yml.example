@@ -31,12 +31,12 @@ app:
     admin:
       name: ${INITIAL_ADMIN_NAME:Super Administrator}
       mobile: ${INITIAL_ADMIN_MOBILE:9999999999}
-      email: ${INITIAL_ADMIN_EMAIL:admin@daddysoda.com}
+      email: ${INITIAL_ADMIN_EMAIL:admin@Daddysoda.com}
       password: ${INITIAL_ADMIN_PASSWORD:Admin@12345}
   iot:
     api-key: ${APP_IOT_API_KEY:dev_iot_api_key_placeholder}
 
 logging:
   level:
-    com.asalkartechworks.daddysodahouse: DEBUG
+    com.asalkartechworks.Daddysodahouse: DEBUG
     org.springframework.security: DEBUG

@@ -3,7 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: daddy_soda_postgres
+    container_name: Daddy_soda_postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-daddy_soda_house}
@@ -12,7 +12,7 @@ services:
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
-      - daddy_soda_pgdata:/var/lib/postgresql/data
+      - Daddy_soda_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-daddy_soda_house}"]
       interval: 10s
@@ -20,5 +20,5 @@ services:
       retries: 5
 
 volumes:
-  daddy_soda_pgdata:
-    name: daddy_soda_pgdata
+  Daddy_soda_pgdata:
+    name: Daddy_soda_pgdata

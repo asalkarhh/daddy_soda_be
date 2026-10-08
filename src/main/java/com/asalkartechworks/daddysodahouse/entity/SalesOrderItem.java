@@ -57,12 +57,6 @@ public class SalesOrderItem {
     @Column(name = "line_total", precision = 14, scale = 2)
     private BigDecimal lineTotal;
 
-    @Column(name = "original_quantity", precision = 14, scale = 3)
-    private BigDecimal originalQuantity;
-
-    @Column(name = "admin_note", columnDefinition = "TEXT")
-    private String adminNote;
-
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

@@ -35,10 +35,8 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -201,20 +199,14 @@ public class SalesOrderService {
             order.setFranchise(newFranchise);
         }
 
-        if (dto.getOrderDate() != null) {
-            order.setOrderDate(dto.getOrderDate());
-        }
-
         order.setNotes(StringUtils.hasText(dto.getNotes()) ? dto.getNotes().trim() : null);
 
-        String reasonText = StringUtils.hasText(dto.getReason()) ? dto.getReason().trim()
-                : StringUtils.hasText(dto.getUpdateReason()) ? dto.getUpdateReason().trim() : null;
-        if (StringUtils.hasText(reasonText)) {
-            order.setUpdateReason(reasonText);
+        // Replace items
+        order.getItems().clear();
+        List<SalesOrderItem> updatedItems = buildAndValidateOrderItems(order, dto.getItems(), isFranchiseOwner);
+        for (SalesOrderItem item : updatedItems) {
+            order.addItem(item);
         }
-
-        // Update items in-place to prevent unique constraint collisions
-        updateOrderItems(order, dto.getItems(), isFranchiseOwner);
 
         SalesOrder saved = salesOrderRepository.save(order);
         log.info("Updated sales order ID: {}", saved.getId());
@@ -415,103 +407,14 @@ public class SalesOrderService {
                     .salesOrder(order)
                     .product(product)
                     .quantity(itemDto.getQuantity())
-                    .originalQuantity(itemDto.getOriginalQuantity() != null ? itemDto.getOriginalQuantity() : itemDto.getQuantity())
                     .unitPrice(unitPrice)
                     .lineTotal(lineTotal)
-                    .adminNote(StringUtils.hasText(itemDto.getAdminNote()) ? itemDto.getAdminNote().trim() : null)
                     .build();
 
             items.add(item);
         }
 
         return items;
-    }
-
-    private void updateOrderItems(SalesOrder order, List<OrderItemRequestDto> itemDtos, boolean isFranchiseOwner) {
-        if (itemDtos == null || itemDtos.isEmpty()) {
-            throw new BadRequestException("Order items list cannot be empty");
-        }
-
-        Set<UUID> seenProductIds = new HashSet<>();
-        Map<UUID, SalesOrderItem> existingItemsMap = new HashMap<>();
-        for (SalesOrderItem existingItem : order.getItems()) {
-            if (existingItem.getProduct() != null) {
-                existingItemsMap.put(existingItem.getProduct().getId(), existingItem);
-            }
-        }
-
-        List<SalesOrderItem> updatedList = new ArrayList<>();
-
-        for (OrderItemRequestDto itemDto : itemDtos) {
-            UUID productId = itemDto.getProductId();
-            if (!seenProductIds.add(productId)) {
-                throw new BadRequestException("Duplicate product in order: " + productId);
-            }
-
-            Product product = productRepository.findById(productId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
-
-            if (!product.isActive()) {
-                throw new BadRequestException("Cannot add inactive product to order: " + product.getFlavourName());
-            }
-
-            BigDecimal unitPrice;
-            if (isFranchiseOwner) {
-                if (itemDto.getUnitPrice() != null) {
-                    throw new BadRequestException("Franchise owners are not permitted to set custom unit prices");
-                }
-                if (product.getDefaultSellingPrice() == null) {
-                    throw new BadRequestException("Product " + product.getFlavourName() + " has no default selling price configured");
-                }
-                unitPrice = product.getDefaultSellingPrice();
-            } else {
-                if (itemDto.getUnitPrice() != null) {
-                    unitPrice = itemDto.getUnitPrice();
-                } else if (product.getDefaultSellingPrice() != null) {
-                    unitPrice = product.getDefaultSellingPrice();
-                } else {
-                    throw new BadRequestException("No unit price supplied and product " + product.getFlavourName() + " has no default selling price configured");
-                }
-            }
-
-            BigDecimal lineTotal = itemDto.getQuantity().multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
-
-            SalesOrderItem existingItem = existingItemsMap.get(productId);
-            if (existingItem != null) {
-                if (existingItem.getOriginalQuantity() == null) {
-                    existingItem.setOriginalQuantity(existingItem.getQuantity());
-                }
-                existingItem.setQuantity(itemDto.getQuantity());
-                existingItem.setUnitPrice(unitPrice);
-                existingItem.setLineTotal(lineTotal);
-                if (StringUtils.hasText(itemDto.getAdminNote())) {
-                    existingItem.setAdminNote(itemDto.getAdminNote().trim());
-                }
-                updatedList.add(existingItem);
-            } else {
-                BigDecimal origQty = itemDto.getOriginalQuantity() != null ? itemDto.getOriginalQuantity() : itemDto.getQuantity();
-                SalesOrderItem newItem = SalesOrderItem.builder()
-                        .salesOrder(order)
-                        .product(product)
-                        .quantity(itemDto.getQuantity())
-                        .originalQuantity(origQty)
-                        .unitPrice(unitPrice)
-                        .lineTotal(lineTotal)
-                        .adminNote(StringUtils.hasText(itemDto.getAdminNote()) ? itemDto.getAdminNote().trim() : null)
-                        .build();
-                updatedList.add(newItem);
-            }
-        }
-
-        // Remove items that are no longer present in the updated payload
-        order.getItems().removeIf(item -> item.getProduct() == null || !seenProductIds.contains(item.getProduct().getId()));
-
-        // Add any new items to the collection
-        for (SalesOrderItem item : updatedList) {
-            if (!order.getItems().contains(item)) {
-                order.addItem(item);
-            }
-        }
     }
 
     private void verifyFranchiseOwnershipIfOwner(SalesOrder order, UserPrincipal principal) {
@@ -558,10 +461,8 @@ public class SalesOrderService {
                     .flavourName(item.getProduct().getFlavourName())
                     .bottleSizeLitre(item.getProduct().getBottleSizeLitre())
                     .quantity(item.getQuantity())
-                    .originalQuantity(item.getOriginalQuantity())
                     .unitPrice(item.getUnitPrice())
                     .lineTotal(item.getLineTotal())
-                    .adminNote(item.getAdminNote())
                     .build());
         }
 
@@ -576,7 +477,6 @@ public class SalesOrderService {
                 .orderDate(order.getOrderDate())
                 .status(order.getStatus())
                 .notes(order.getNotes())
-                .updateReason(order.getUpdateReason())
                 .cancellationReason(order.getCancellationReason())
                 .cancelledAt(order.getCancelledAt())
                 .cancelledBy(order.getCancelledBy())
@@ -613,7 +513,6 @@ public class SalesOrderService {
                 .franchiseBusinessName(order.getFranchise().getBusinessName())
                 .orderDate(order.getOrderDate())
                 .status(order.getStatus())
-                .updateReason(order.getUpdateReason())
                 .itemCount(order.getItems().size())
                 .totalQuantity(totalQuantity)
                 .orderTotal(orderTotal)
