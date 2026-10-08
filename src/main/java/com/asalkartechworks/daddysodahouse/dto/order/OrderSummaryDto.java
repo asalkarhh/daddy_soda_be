@@ -24,6 +24,7 @@ public class OrderSummaryDto {
     private String franchiseBusinessName;
     private LocalDate orderDate;
     private SalesOrderStatus status;
+    private String updateReason;
     private int itemCount;
     private BigDecimal totalQuantity;
     private BigDecimal orderTotal;

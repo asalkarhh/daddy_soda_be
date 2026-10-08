@@ -25,4 +25,8 @@ public class OrderItemRequestDto {
 
     @DecimalMin(value = "0.00", message = "Unit price must be zero or greater")
     private BigDecimal unitPrice;
+
+    private BigDecimal originalQuantity;
+
+    private String adminNote;
 }
