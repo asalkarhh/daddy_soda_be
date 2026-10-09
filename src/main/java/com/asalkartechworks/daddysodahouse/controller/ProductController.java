@@ -32,7 +32,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MANAGER')")
 @Tag(name = "Product Master", description = "Syrup/flavour product catalog management (SUPER_ADMIN and MANAGER)")
 @SecurityRequirement(name = "Bearer Authentication")
 public class ProductController {
@@ -40,6 +39,7 @@ public class ProductController {
     private final ProductService productService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MANAGER')")
     @Operation(summary = "Create product", description = "Create a syrup/flavour product item")
     public ResponseEntity<ApiResponse<ProductResponseDto>> createProduct(@Valid @RequestBody ProductRequestDto dto) {
         ProductResponseDto response = productService.createProduct(dto);
@@ -58,6 +58,7 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MANAGER')")
     @Operation(summary = "Get product by ID", description = "Retrieve single product details")
     public ResponseEntity<ApiResponse<ProductResponseDto>> getProductById(@PathVariable UUID id) {
         ProductResponseDto response = productService.getProductById(id);
@@ -65,6 +66,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MANAGER')")
     @Operation(summary = "Update product", description = "Update details of an existing product")
     public ResponseEntity<ApiResponse<ProductResponseDto>> updateProduct(
             @PathVariable UUID id,
@@ -74,6 +76,7 @@ public class ProductController {
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MANAGER')")
     @Operation(summary = "Update product status", description = "Activate or deactivate a product")
     public ResponseEntity<ApiResponse<ProductResponseDto>> updateStatus(
             @PathVariable UUID id,

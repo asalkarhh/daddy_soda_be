@@ -28,9 +28,12 @@ public class OrderResponseDto {
     private LocalDate orderDate;
     private SalesOrderStatus status;
     private String notes;
+    private String updateReason;
+    private String reorderedFromOrderNumber;
     private String cancellationReason;
     private Instant cancelledAt;
     private UUID cancelledBy;
+    private String cancelledByRole;
     private Instant preparedAt;
     private UUID preparedBy;
     private Instant deliveredAt;

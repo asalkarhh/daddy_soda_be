@@ -65,6 +65,12 @@ public class SalesOrder {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "update_reason", columnDefinition = "TEXT")
+    private String updateReason;
+
+    @Column(name = "reordered_from_order_number", length = 40)
+    private String reorderedFromOrderNumber;
+
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
 
@@ -73,6 +79,9 @@ public class SalesOrder {
 
     @Column(name = "cancelled_by")
     private UUID cancelledBy;
+
+    @Column(name = "cancelled_by_role", length = 30)
+    private String cancelledByRole;
 
     @Column(name = "prepared_at")
     private Instant preparedAt;

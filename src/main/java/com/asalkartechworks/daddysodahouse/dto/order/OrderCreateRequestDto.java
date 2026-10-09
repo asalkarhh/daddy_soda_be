@@ -31,6 +31,8 @@ public class OrderCreateRequestDto {
     @Size(max = 1000, message = "Notes cannot exceed 1000 characters")
     private String notes;
 
+    private String reorderedFromOrderNumber;
+
     @NotEmpty(message = "Order items list cannot be empty; minimum one item is required")
     @Valid
     private List<OrderItemRequestDto> items;

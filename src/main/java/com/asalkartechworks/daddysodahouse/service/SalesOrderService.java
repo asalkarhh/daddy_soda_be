@@ -20,6 +20,7 @@ import com.asalkartechworks.daddysodahouse.exception.ResourceNotFoundException;
 import com.asalkartechworks.daddysodahouse.repository.FranchiseRepository;
 import com.asalkartechworks.daddysodahouse.repository.ProductRepository;
 import com.asalkartechworks.daddysodahouse.repository.SalesOrderRepository;
+import com.asalkartechworks.daddysodahouse.repository.UserRepository;
 import com.asalkartechworks.daddysodahouse.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +49,7 @@ public class SalesOrderService {
     private final SalesOrderRepository salesOrderRepository;
     private final FranchiseRepository franchiseRepository;
     private final ProductRepository productRepository;
+    private final UserRepository userRepository;
     private final InventoryService inventoryService;
 
     /**
@@ -99,6 +101,7 @@ public class SalesOrderService {
                 .orderDate(orderDate)
                 .status(status)
                 .notes(StringUtils.hasText(dto.getNotes()) ? dto.getNotes().trim() : null)
+                .reorderedFromOrderNumber(StringUtils.hasText(dto.getReorderedFromOrderNumber()) ? dto.getReorderedFromOrderNumber().trim() : null)
                 .build();
 
         SalesOrder savedOrder = salesOrderRepository.save(order);
@@ -200,9 +203,14 @@ public class SalesOrderService {
         }
 
         order.setNotes(StringUtils.hasText(dto.getNotes()) ? dto.getNotes().trim() : null);
+        order.setUpdateReason(StringUtils.hasText(dto.getReason()) ? dto.getReason().trim() : null);
 
         // Replace items
         order.getItems().clear();
+        // Flush orphan removals before inserting replacement rows. This avoids
+        // violating the unique (sales_order_id, product_id) constraint when an
+        // administrator edits an existing order item.
+        salesOrderRepository.saveAndFlush(order);
         List<SalesOrderItem> updatedItems = buildAndValidateOrderItems(order, dto.getItems(), isFranchiseOwner);
         for (SalesOrderItem item : updatedItems) {
             order.addItem(item);
@@ -336,6 +344,7 @@ public class SalesOrderService {
         order.setCancellationReason(dto.getReason().trim());
         order.setCancelledAt(Instant.now());
         order.setCancelledBy(principal.getId());
+        order.setCancelledByRole(principal.getRole().name());
 
         SalesOrder saved = salesOrderRepository.save(order);
         log.info("Order {} CANCELLED with reason: {}", saved.getOrderNumber(), dto.getReason());
@@ -407,6 +416,8 @@ public class SalesOrderService {
                     .salesOrder(order)
                     .product(product)
                     .quantity(itemDto.getQuantity())
+                    .originalQuantity(itemDto.getOriginalQuantity() != null ? itemDto.getOriginalQuantity() : itemDto.getQuantity())
+                    .adminNote(StringUtils.hasText(itemDto.getAdminNote()) ? itemDto.getAdminNote().trim() : null)
                     .unitPrice(unitPrice)
                     .lineTotal(lineTotal)
                     .build();
@@ -461,6 +472,8 @@ public class SalesOrderService {
                     .flavourName(item.getProduct().getFlavourName())
                     .bottleSizeLitre(item.getProduct().getBottleSizeLitre())
                     .quantity(item.getQuantity())
+                    .originalQuantity(item.getOriginalQuantity())
+                    .adminNote(item.getAdminNote())
                     .unitPrice(item.getUnitPrice())
                     .lineTotal(item.getLineTotal())
                     .build());
@@ -477,9 +490,12 @@ public class SalesOrderService {
                 .orderDate(order.getOrderDate())
                 .status(order.getStatus())
                 .notes(order.getNotes())
+                .updateReason(order.getUpdateReason())
+                .reorderedFromOrderNumber(order.getReorderedFromOrderNumber())
                 .cancellationReason(order.getCancellationReason())
                 .cancelledAt(order.getCancelledAt())
                 .cancelledBy(order.getCancelledBy())
+                .cancelledByRole(resolveCancelledByRole(order))
                 .preparedAt(order.getPreparedAt())
                 .preparedBy(order.getPreparedBy())
                 .deliveredAt(order.getDeliveredAt())
@@ -492,6 +508,18 @@ public class SalesOrderService {
                 .createdBy(order.getCreatedBy())
                 .updatedBy(order.getUpdatedBy())
                 .build();
+    }
+
+    private String resolveCancelledByRole(SalesOrder order) {
+        if (order.getCancelledByRole() != null) {
+            return order.getCancelledByRole();
+        }
+        if (order.getCancelledBy() == null) {
+            return null;
+        }
+        return userRepository.findById(order.getCancelledBy())
+                .map(user -> user.getRole().name())
+                .orElse(null);
     }
 
     private OrderSummaryDto toSummaryDto(SalesOrder order) {

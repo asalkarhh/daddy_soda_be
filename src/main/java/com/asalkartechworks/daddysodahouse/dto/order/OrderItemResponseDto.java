@@ -20,6 +20,8 @@ public class OrderItemResponseDto {
     private String flavourName;
     private BigDecimal bottleSizeLitre;
     private BigDecimal quantity;
+    private BigDecimal originalQuantity;
+    private String adminNote;
     private BigDecimal unitPrice;
     private BigDecimal lineTotal;
 }

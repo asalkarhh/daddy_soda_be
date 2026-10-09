@@ -51,6 +51,12 @@ public class SalesOrderItem {
     @Column(name = "quantity", precision = 14, scale = 3, nullable = false)
     private BigDecimal quantity;
 
+    @Column(name = "original_quantity", precision = 14, scale = 3)
+    private BigDecimal originalQuantity;
+
+    @Column(name = "admin_note", columnDefinition = "TEXT")
+    private String adminNote;
+
     @Column(name = "unit_price", precision = 12, scale = 2)
     private BigDecimal unitPrice;
 
