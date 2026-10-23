@@ -52,15 +52,15 @@ public class InvoiceService {
     private final InvoiceProperties invoiceProperties;
 
     /**
-     * Create an invoice for a DELIVERED sales order.
+     * Create an invoice for a PREPARED or DELIVERED sales order.
      */
     @Transactional
     public InvoiceResponseDto createInvoice(InvoiceCreateRequestDto dto, UserPrincipal principal) {
         SalesOrder salesOrder = salesOrderRepository.findById(dto.getSalesOrderId())
                 .orElseThrow(() -> new ResourceNotFoundException("SalesOrder", "id", dto.getSalesOrderId()));
 
-        if (salesOrder.getStatus() != SalesOrderStatus.DELIVERED) {
-            throw new BadRequestException("Invoices can only be created for DELIVERED sales orders. Current status: " + salesOrder.getStatus());
+        if (salesOrder.getStatus() != SalesOrderStatus.PREPARED && salesOrder.getStatus() != SalesOrderStatus.DELIVERED) {
+            throw new BadRequestException("Invoices can only be created for PREPARED or DELIVERED sales orders. Current status: " + salesOrder.getStatus());
         }
 
         if (invoiceRepository.existsBySalesOrderId(salesOrder.getId())) {

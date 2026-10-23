@@ -2,6 +2,7 @@ package com.asalkartechworks.daddysodahouse.service;
 
 import com.asalkartechworks.daddysodahouse.dto.common.PageResponse;
 import com.asalkartechworks.daddysodahouse.dto.order.OrderCancelRequestDto;
+import com.asalkartechworks.daddysodahouse.dto.order.OrderDispatchRequestDto;
 import com.asalkartechworks.daddysodahouse.dto.order.OrderCreateRequestDto;
 import com.asalkartechworks.daddysodahouse.dto.order.OrderItemRequestDto;
 import com.asalkartechworks.daddysodahouse.dto.order.OrderItemResponseDto;
@@ -271,7 +272,7 @@ public class SalesOrderService {
      * Full delivery only; rejects and rolls back if any product has insufficient stock.
      */
     @Transactional
-    public OrderResponseDto deliverOrder(UUID id, UserPrincipal principal) {
+    public OrderResponseDto deliverOrder(UUID id, OrderDispatchRequestDto dto, UserPrincipal principal) {
         SalesOrder order = salesOrderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("SalesOrder", "id", id));
 
@@ -310,6 +311,7 @@ public class SalesOrderService {
         order.setStatus(SalesOrderStatus.DELIVERED);
         order.setDeliveredAt(Instant.now());
         order.setDeliveredBy(principal.getId());
+        order.setNotes(dto.getRemark().trim());
 
         SalesOrder saved = salesOrderRepository.save(order);
         log.info("Order {} successfully DELIVERED and warehouse stock deducted", saved.getOrderNumber());

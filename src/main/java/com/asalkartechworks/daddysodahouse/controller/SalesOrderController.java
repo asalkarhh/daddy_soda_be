@@ -5,6 +5,7 @@ import com.asalkartechworks.daddysodahouse.dto.common.PageResponse;
 import com.asalkartechworks.daddysodahouse.dto.order.OrderCancelRequestDto;
 import com.asalkartechworks.daddysodahouse.dto.order.OrderCreateRequestDto;
 import com.asalkartechworks.daddysodahouse.dto.order.OrderResponseDto;
+import com.asalkartechworks.daddysodahouse.dto.order.OrderDispatchRequestDto;
 import com.asalkartechworks.daddysodahouse.dto.order.OrderSummaryDto;
 import com.asalkartechworks.daddysodahouse.dto.order.OrderUpdateRequestDto;
 import com.asalkartechworks.daddysodahouse.entity.SalesOrderStatus;
@@ -219,8 +220,9 @@ public class SalesOrderController {
     )
     public ResponseEntity<ApiResponse<OrderResponseDto>> deliverOrder(
             @PathVariable UUID id,
+            @Valid @RequestBody OrderDispatchRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
-        OrderResponseDto response = salesOrderService.deliverOrder(id, principal);
+        OrderResponseDto response = salesOrderService.deliverOrder(id, dto, principal);
         return ResponseEntity.ok(ApiResponse.success(response, "Sales order marked as delivered and warehouse stock deducted"));
     }
 
