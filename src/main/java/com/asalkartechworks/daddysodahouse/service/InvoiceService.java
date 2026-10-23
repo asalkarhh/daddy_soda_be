@@ -20,6 +20,7 @@ import com.asalkartechworks.daddysodahouse.entity.UserRole;
 import com.asalkartechworks.daddysodahouse.exception.BadRequestException;
 import com.asalkartechworks.daddysodahouse.exception.ResourceNotFoundException;
 import com.asalkartechworks.daddysodahouse.repository.InvoiceRepository;
+import com.asalkartechworks.daddysodahouse.repository.FranchiseCreditBalanceRepository;
 import com.asalkartechworks.daddysodahouse.repository.PaymentCollectionRepository;
 import com.asalkartechworks.daddysodahouse.repository.SalesOrderRepository;
 import com.asalkartechworks.daddysodahouse.security.UserPrincipal;
@@ -50,6 +51,7 @@ public class InvoiceService {
     private final PaymentCollectionRepository paymentCollectionRepository;
     private final InvoicePdfService invoicePdfService;
     private final InvoiceProperties invoiceProperties;
+    private final FranchiseCreditBalanceRepository franchiseCreditBalanceRepository;
 
     /**
      * Create an invoice for a PLACED, PREPARED, or DELIVERED sales order.
@@ -115,6 +117,9 @@ public class InvoiceService {
 
         String invoiceNumber = generateInvoiceNumber(dto.getInvoiceType());
 
+        BigDecimal creditApplied = franchiseCreditBalanceRepository.findByFranchiseId(salesOrder.getFranchise().getId())
+                .map(c -> c.getBalanceAmount().min(totalAmount).max(BigDecimal.ZERO))
+                .orElse(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
         Invoice invoice = Invoice.builder()
                 .salesOrder(salesOrder)
                 .invoiceNumber(invoiceNumber)
@@ -126,9 +131,11 @@ public class InvoiceService {
                 .gstRatePercent(gstRatePercent)
                 .gstAmount(gstAmount)
                 .totalAmount(totalAmount)
-                .paidAmount(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
-                .balanceAmount(totalAmount)
-                .paymentStatus(InvoicePaymentStatus.UNPAID)
+                .originalTotalAmount(totalAmount)
+                .creditAppliedAmount(creditApplied)
+                .paidAmount(creditApplied)
+                .balanceAmount(totalAmount.subtract(creditApplied))
+                .paymentStatus(creditApplied.compareTo(BigDecimal.ZERO) > 0 ? InvoicePaymentStatus.PARTIALLY_PAID : InvoicePaymentStatus.UNPAID)
                 .notes(StringUtils.hasText(dto.getNotes()) ? dto.getNotes().trim() : null)
                 .build();
 
@@ -148,6 +155,12 @@ public class InvoiceService {
         }
 
         Invoice saved = invoiceRepository.save(invoice);
+        if (creditApplied.compareTo(BigDecimal.ZERO) > 0) {
+            franchiseCreditBalanceRepository.findByFranchiseId(salesOrder.getFranchise().getId()).ifPresent(c -> {
+                c.setBalanceAmount(c.getBalanceAmount().subtract(creditApplied));
+                franchiseCreditBalanceRepository.save(c);
+            });
+        }
 
         // Generate and save PDF file
         try {
@@ -379,6 +392,9 @@ public class InvoiceService {
                 .gstRatePercent(invoice.getGstRatePercent())
                 .gstAmount(invoice.getGstAmount())
                 .totalAmount(invoice.getTotalAmount())
+                .originalTotalAmount(invoice.getOriginalTotalAmount())
+                .creditAppliedAmount(invoice.getCreditAppliedAmount())
+                .excessCreditAmount(invoice.getExcessCreditAmount())
                 .paidAmount(invoice.getPaidAmount())
                 .balanceAmount(invoice.getBalanceAmount())
                 .paymentStatus(invoice.getPaymentStatus())

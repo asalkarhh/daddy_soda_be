@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.math.BigDecimal;
 
 @Data
 @Builder
@@ -51,6 +52,7 @@ public class FranchiseResponseDto {
 
     @Schema(description = "Whether franchise is active", example = "true")
     private boolean active;
+    private BigDecimal availableCredit;
 
     @Schema(description = "Creation timestamp")
     private Instant createdAt;

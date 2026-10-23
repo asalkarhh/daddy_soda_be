@@ -30,6 +30,9 @@ public class InvoiceResponseDto {
     private BigDecimal gstRatePercent;
     private BigDecimal gstAmount;
     private BigDecimal totalAmount;
+    private BigDecimal originalTotalAmount;
+    private BigDecimal creditAppliedAmount;
+    private BigDecimal excessCreditAmount;
     private BigDecimal paidAmount;
     private BigDecimal balanceAmount;
     private InvoicePaymentStatus paymentStatus;

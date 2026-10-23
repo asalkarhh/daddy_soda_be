@@ -41,6 +41,9 @@ public class OrderResponseDto {
     private List<OrderItemResponseDto> items;
     private BigDecimal totalQuantity;
     private BigDecimal orderTotal;
+    private BigDecimal availableCredit;
+    private BigDecimal estimatedCreditApplied;
+    private BigDecimal estimatedPayableAmount;
     private Instant createdAt;
     private Instant updatedAt;
     private UUID createdBy;

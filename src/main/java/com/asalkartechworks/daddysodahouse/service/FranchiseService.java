@@ -8,6 +8,7 @@ import com.asalkartechworks.daddysodahouse.exception.BadRequestException;
 import com.asalkartechworks.daddysodahouse.exception.ResourceNotFoundException;
 import com.asalkartechworks.daddysodahouse.repository.FranchiseRepository;
 import com.asalkartechworks.daddysodahouse.repository.OutletRepository;
+import com.asalkartechworks.daddysodahouse.repository.FranchiseCreditBalanceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.UUID;
+import java.math.BigDecimal;
 
 @Slf4j
 @Service
@@ -25,6 +27,7 @@ public class FranchiseService {
 
     private final FranchiseRepository franchiseRepository;
     private final OutletRepository outletRepository;
+    private final FranchiseCreditBalanceRepository franchiseCreditBalanceRepository;
 
     @Transactional
     public FranchiseResponseDto createFranchise(FranchiseRequestDto dto) {
@@ -120,6 +123,7 @@ public class FranchiseService {
                 .state(f.getState())
                 .pincode(f.getPincode())
                 .active(f.isActive())
+                .availableCredit(franchiseCreditBalanceRepository.findByFranchiseId(f.getId()).map(c -> c.getBalanceAmount()).orElse(BigDecimal.ZERO))
                 .createdAt(f.getCreatedAt())
                 .updatedAt(f.getUpdatedAt())
                 .build();

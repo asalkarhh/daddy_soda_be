@@ -10,6 +10,8 @@ import com.asalkartechworks.daddysodahouse.dto.order.OrderResponseDto;
 import com.asalkartechworks.daddysodahouse.dto.order.OrderSummaryDto;
 import com.asalkartechworks.daddysodahouse.dto.order.OrderUpdateRequestDto;
 import com.asalkartechworks.daddysodahouse.entity.Franchise;
+import com.asalkartechworks.daddysodahouse.entity.FranchiseCreditBalance;
+import com.asalkartechworks.daddysodahouse.entity.Invoice;
 import com.asalkartechworks.daddysodahouse.entity.Product;
 import com.asalkartechworks.daddysodahouse.entity.SalesOrder;
 import com.asalkartechworks.daddysodahouse.entity.SalesOrderItem;
@@ -19,6 +21,8 @@ import com.asalkartechworks.daddysodahouse.entity.UserRole;
 import com.asalkartechworks.daddysodahouse.exception.BadRequestException;
 import com.asalkartechworks.daddysodahouse.exception.ResourceNotFoundException;
 import com.asalkartechworks.daddysodahouse.repository.FranchiseRepository;
+import com.asalkartechworks.daddysodahouse.repository.FranchiseCreditBalanceRepository;
+import com.asalkartechworks.daddysodahouse.repository.InvoiceRepository;
 import com.asalkartechworks.daddysodahouse.repository.ProductRepository;
 import com.asalkartechworks.daddysodahouse.repository.SalesOrderRepository;
 import com.asalkartechworks.daddysodahouse.repository.UserRepository;
@@ -51,6 +55,8 @@ public class SalesOrderService {
     private final FranchiseRepository franchiseRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final InvoiceRepository invoiceRepository;
+    private final FranchiseCreditBalanceRepository franchiseCreditBalanceRepository;
     private final InventoryService inventoryService;
 
     /**
@@ -178,6 +184,8 @@ public class SalesOrderService {
     public OrderResponseDto updateOrder(UUID id, OrderUpdateRequestDto dto, UserPrincipal principal) {
         SalesOrder order = salesOrderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("SalesOrder", "id", id));
+        Invoice existingInvoice = invoiceRepository.findBySalesOrderId(id).orElse(null);
+        BigDecimal previousInvoiceTotal = existingInvoice != null ? existingInvoice.getTotalAmount() : null;
 
         boolean isFranchiseOwner = principal.getRole() == UserRole.FRANCHISE_OWNER;
         verifyFranchiseOwnershipIfOwner(order, principal);
@@ -218,6 +226,32 @@ public class SalesOrderService {
         }
 
         SalesOrder saved = salesOrderRepository.save(order);
+        if (existingInvoice != null && previousInvoiceTotal != null) {
+            BigDecimal revisedTotal = saved.getItems().stream()
+                    .map(SalesOrderItem::getLineTotal)
+                    .filter(java.util.Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .setScale(2, RoundingMode.HALF_UP);
+            BigDecimal paid = existingInvoice.getPaidAmount() == null ? BigDecimal.ZERO : existingInvoice.getPaidAmount();
+            if (revisedTotal.compareTo(previousInvoiceTotal) < 0) {
+                BigDecimal excess = paid.subtract(revisedTotal).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+                if (excess.compareTo(BigDecimal.ZERO) > 0) {
+                    FranchiseCreditBalance credit = franchiseCreditBalanceRepository.findByFranchiseId(saved.getFranchise().getId())
+                            .orElseGet(() -> FranchiseCreditBalance.builder().franchise(saved.getFranchise()).build());
+                    BigDecimal currentCredit = credit.getBalanceAmount() == null ? BigDecimal.ZERO : credit.getBalanceAmount();
+                    credit.setBalanceAmount(currentCredit.add(excess));
+                    franchiseCreditBalanceRepository.save(credit);
+                    BigDecimal previousExcess = existingInvoice.getExcessCreditAmount() == null ? BigDecimal.ZERO : existingInvoice.getExcessCreditAmount();
+                    existingInvoice.setExcessCreditAmount(previousExcess.add(excess));
+                    existingInvoice.setPaidAmount(revisedTotal);
+                    existingInvoice.setBalanceAmount(BigDecimal.ZERO);
+                    existingInvoice.setTotalAmount(revisedTotal);
+                    existingInvoice.setOriginalTotalAmount(previousInvoiceTotal);
+                    existingInvoice.recalculatePaymentStatus(LocalDate.now());
+                    invoiceRepository.save(existingInvoice);
+                }
+            }
+        }
         log.info("Updated sales order ID: {}", saved.getId());
         return toResponseDto(saved);
     }
@@ -289,7 +323,6 @@ public class SalesOrderService {
                         item.getProduct().getFlavourName(), item.getProduct().getItemCode(), currentStock, item.getQuantity()));
             }
         }
-
         if (!shortages.isEmpty()) {
             throw new BadRequestException("Insufficient warehouse stock for delivery: " + String.join("; ", shortages));
         }
@@ -481,6 +514,11 @@ public class SalesOrderService {
                     .build());
         }
 
+        BigDecimal availableCredit = franchiseCreditBalanceRepository.findByFranchiseId(order.getFranchise().getId())
+                .map(c -> c.getBalanceAmount() == null ? BigDecimal.ZERO : c.getBalanceAmount())
+                .orElse(BigDecimal.ZERO);
+        BigDecimal estimatedCreditApplied = availableCredit.min(orderTotal).max(BigDecimal.ZERO);
+
         return OrderResponseDto.builder()
                 .id(order.getId())
                 .orderNumber(order.getOrderNumber())
@@ -505,6 +543,9 @@ public class SalesOrderService {
                 .items(itemDtos)
                 .totalQuantity(totalQuantity)
                 .orderTotal(orderTotal)
+                .availableCredit(availableCredit)
+                .estimatedCreditApplied(estimatedCreditApplied)
+                .estimatedPayableAmount(orderTotal.subtract(estimatedCreditApplied))
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .createdBy(order.getCreatedBy())

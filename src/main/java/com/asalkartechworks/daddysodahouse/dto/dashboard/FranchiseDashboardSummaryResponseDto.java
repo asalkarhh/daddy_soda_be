@@ -33,6 +33,7 @@ public class FranchiseDashboardSummaryResponseDto {
 
     private BigDecimal invoiceTotalThisMonth;
     private BigDecimal pendingAmount;
+    private BigDecimal availableCredit;
     private BigDecimal overdueAmount;
     private long overdueInvoiceCount;
 

@@ -18,6 +18,7 @@ import com.asalkartechworks.daddysodahouse.exception.ResourceNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 import com.asalkartechworks.daddysodahouse.repository.EnquiryRepository;
 import com.asalkartechworks.daddysodahouse.repository.FranchiseRepository;
+import com.asalkartechworks.daddysodahouse.repository.FranchiseCreditBalanceRepository;
 import com.asalkartechworks.daddysodahouse.repository.InventoryStockRepository;
 import com.asalkartechworks.daddysodahouse.repository.InvoiceRepository;
 import com.asalkartechworks.daddysodahouse.repository.MachineRepository;
@@ -60,6 +61,7 @@ public class DashboardService {
     private final SalesOrderRepository salesOrderRepository;
     private final InvoiceRepository invoiceRepository;
     private final EnquiryRepository enquiryRepository;
+    private final FranchiseCreditBalanceRepository franchiseCreditBalanceRepository;
 
     /**
      * Complete operational dashboard summary for SUPER_ADMIN and MANAGER.
@@ -189,6 +191,8 @@ public class DashboardService {
 
         List<InvoiceSummaryDto> latestInvoices = invoiceRepository.findLatestInvoicesByFranchiseId(
                 franchiseId, PageRequest.of(0, 5)).stream().map(this::toInvoiceSummaryDto).toList();
+        BigDecimal availableCredit = franchiseCreditBalanceRepository.findByFranchiseId(franchiseId)
+                .map(c -> c.getBalanceAmount()).orElse(BigDecimal.ZERO);
 
         return FranchiseDashboardSummaryResponseDto.builder()
                 .franchiseId(franchise.getId())
@@ -198,6 +202,7 @@ public class DashboardService {
                 .ordersByStatus(ordersByStatus)
                 .invoiceTotalThisMonth(invoiceTotalMonth)
                 .pendingAmount(pendingAmount)
+                .availableCredit(availableCredit)
                 .overdueAmount(overdueAmount)
                 .overdueInvoiceCount(overdueCount)
                 .nextDueInvoice(nextDueInvoice)

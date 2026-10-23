@@ -84,6 +84,17 @@ public class Invoice {
     @Column(name = "total_amount", nullable = false, precision = 14, scale = 2)
     private BigDecimal totalAmount;
 
+    @Column(name = "original_total_amount", precision = 14, scale = 2)
+    private BigDecimal originalTotalAmount;
+
+    @Builder.Default
+    @Column(name = "credit_applied_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal creditAppliedAmount = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "excess_credit_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal excessCreditAmount = BigDecimal.ZERO;
+
     @Builder.Default
     @Column(name = "paid_amount", nullable = false, precision = 14, scale = 2)
     private BigDecimal paidAmount = BigDecimal.ZERO;
