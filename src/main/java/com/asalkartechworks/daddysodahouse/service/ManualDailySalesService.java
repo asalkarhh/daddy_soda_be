@@ -38,6 +38,14 @@ import java.util.UUID;
 public class ManualDailySalesService {
 
     private final ManualDailyFlavourSalesRepository manualDailySalesRepository;
+
+    @Transactional(readOnly = true)
+    public ManualDailySalesResponseDto getManualSalesById(UUID id, UserPrincipal principal) {
+        ManualDailyFlavourSales entry = manualDailySalesRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Manual sales entry not found with ID: " + id));
+        verifyRecordOwnership(entry, principal);
+        return mapToDto(entry);
+    }
     private final FranchiseRepository franchiseRepository;
     private final MachineRepository machineRepository;
     private final ProductRepository productRepository;
@@ -105,6 +113,7 @@ public class ManualDailySalesService {
                 .salesDate(request.getSalesDate())
                 .quantity(request.getQuantity())
                 .quantityUnit(unit)
+                .retailUnitPrice(request.getRetailUnitPrice())
                 .notes(request.getNotes())
                 .build();
 
@@ -131,6 +140,7 @@ public class ManualDailySalesService {
 
         entry.setQuantity(request.getQuantity());
         entry.setQuantityUnit(request.getQuantityUnit());
+        entry.setRetailUnitPrice(request.getRetailUnitPrice());
         entry.setNotes(request.getNotes());
 
         ManualDailyFlavourSales updated = manualDailySalesRepository.save(entry);
@@ -221,6 +231,7 @@ public class ManualDailySalesService {
                 .salesDate(entry.getSalesDate())
                 .quantity(entry.getQuantity())
                 .quantityUnit(entry.getQuantityUnit())
+                .retailUnitPrice(entry.getRetailUnitPrice())
                 .notes(entry.getNotes())
                 .createdAt(entry.getCreatedAt())
                 .updatedAt(entry.getUpdatedAt())

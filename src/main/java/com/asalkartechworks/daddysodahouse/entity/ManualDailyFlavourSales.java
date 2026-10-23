@@ -81,6 +81,9 @@ public class ManualDailyFlavourSales {
     @Column(name = "quantity_unit", length = 20, nullable = false)
     private ManualSalesQuantityUnit quantityUnit = ManualSalesQuantityUnit.GLASSES;
 
+    @Column(name = "retail_unit_price", precision = 12, scale = 2)
+    private BigDecimal retailUnitPrice;
+
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 

@@ -29,6 +29,7 @@ public class ManualDailySalesResponseDto {
     private LocalDate salesDate;
     private BigDecimal quantity;
     private ManualSalesQuantityUnit quantityUnit;
+    private BigDecimal retailUnitPrice;
     private String notes;
     private Instant createdAt;
     private Instant updatedAt;

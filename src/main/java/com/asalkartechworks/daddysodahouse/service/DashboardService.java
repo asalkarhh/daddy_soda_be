@@ -130,10 +130,11 @@ public class DashboardService {
             DueType dueType,
             LocalDate fromDate,
             LocalDate toDate,
+            UUID requestedFranchiseId,
             Pageable pageable,
             UserPrincipal principal) {
 
-        UUID franchiseId = null;
+        UUID franchiseId = requestedFranchiseId;
         if (principal != null && principal.getRole() == UserRole.FRANCHISE_OWNER) {
             franchiseId = principal.getFranchiseId();
             if (franchiseId == null) {

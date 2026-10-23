@@ -77,7 +77,16 @@ public class ManualDailySalesController {
         return ResponseEntity.ok(ApiResponse.success(result, "Manual daily sales entries retrieved successfully"));
     }
 
-    @Operation(summary = "Update Manual Daily Sales", description = "Corrects quantity, unit, or notes of an existing manual sales entry")
+    @Operation(summary = "Get Manual Daily Sales", description = "Retrieves one manual sales entry")
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<ManualDailySalesResponseDto>> getManualSalesById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(manualDailySalesService.getManualSalesById(id, principal), "Manual daily sales entry retrieved successfully"));
+    }
+
+    @Operation(summary = "Update Manual Daily Sales", description = "Corrects quantity, unit, retail price, or notes of an existing manual sales entry")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ManualDailySalesResponseDto>> updateManualSales(
             @PathVariable UUID id,

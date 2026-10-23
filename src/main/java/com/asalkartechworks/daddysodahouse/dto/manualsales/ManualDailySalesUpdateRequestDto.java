@@ -24,6 +24,9 @@ public class ManualDailySalesUpdateRequestDto {
     @NotNull(message = "Quantity unit is mandatory")
     private ManualSalesQuantityUnit quantityUnit;
 
+    @DecimalMin(value = "0.00", message = "Retail unit price cannot be negative")
+    private BigDecimal retailUnitPrice;
+
     @Size(max = 1000, message = "Notes cannot exceed 1000 characters")
     private String notes;
 }

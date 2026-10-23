@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * Controller for executive business operations dashboards and credit dues management.
@@ -54,6 +55,7 @@ public class DashboardController {
             @RequestParam(required = false) DueType dueType,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) UUID franchiseId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "dueDate,asc") String[] sort,
@@ -62,7 +64,7 @@ public class DashboardController {
         Sort sortObj = Sort.by(Sort.Direction.fromString(sort.length > 1 ? sort[1] : "asc"), sort[0]);
         Pageable pageable = PageRequest.of(page, size, sortObj);
 
-        Page<DueInvoiceResponseDto> result = dashboardService.getDues(dueType, fromDate, toDate, pageable, principal);
+        Page<DueInvoiceResponseDto> result = dashboardService.getDues(dueType, fromDate, toDate, franchiseId, pageable, principal);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(result), "Credit dues retrieved successfully"));
     }
 
