@@ -25,6 +25,7 @@ import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -96,11 +97,9 @@ public class InvoicePdfService {
             String filename = invoice.getInvoiceNumber() + ".pdf";
             Path targetFile = storageDir.resolve(filename);
 
-            if (Files.exists(targetFile)) {
-                return Files.readAllBytes(targetFile);
+            if (!Files.exists(storageDir)) {
+                Files.createDirectories(storageDir);
             }
-
-            log.warn("Invoice PDF missing on disk for {}; regenerating...", invoice.getInvoiceNumber());
             byte[] generated = generatePdfBytes(invoice);
             Files.write(targetFile, generated);
             return generated;
@@ -212,9 +211,9 @@ public class InvoicePdfService {
             addTableCell(itemsTable, item.getItemCode(), regularFont, Element.ALIGN_LEFT);
             addTableCell(itemsTable, item.getFlavourName(), regularFont, Element.ALIGN_LEFT);
             addTableCell(itemsTable, item.getBottleSizeLitre() != null ? item.getBottleSizeLitre() + " L" : "-", regularFont, Element.ALIGN_CENTER);
-            addTableCell(itemsTable, item.getQuantity().toString(), regularFont, Element.ALIGN_RIGHT);
-            addTableCell(itemsTable, String.format("%.2f", item.getUnitPrice()), regularFont, Element.ALIGN_RIGHT);
-            addTableCell(itemsTable, String.format("%.2f", item.getLineTotal()), regularFont, Element.ALIGN_RIGHT);
+            addTableCell(itemsTable, item.getQuantity() != null ? item.getQuantity().toString() : "0", regularFont, Element.ALIGN_RIGHT);
+            addTableCell(itemsTable, formatDecimal(item.getUnitPrice()), regularFont, Element.ALIGN_RIGHT);
+            addTableCell(itemsTable, formatDecimal(item.getLineTotal()), regularFont, Element.ALIGN_RIGHT);
         }
         document.add(itemsTable);
 
@@ -241,15 +240,19 @@ public class InvoicePdfService {
         totalsTable.setWidthPercentage(100);
         totalsTable.setWidths(new float[]{50f, 50f});
 
-        addTotalRow(totalsTable, "Subtotal:", String.format("Rs. %.2f", invoice.getSubtotalAmount()), regularFont, regularFont);
+        addTotalRow(totalsTable, "Subtotal:", formatAmount(invoice.getSubtotalAmount()), regularFont, regularFont);
 
         if (invoice.getInvoiceType() == InvoiceType.GST) {
-            addTotalRow(totalsTable, "GST (" + invoice.getGstRatePercent() + "%):", String.format("Rs. %.2f", invoice.getGstAmount()), regularFont, regularFont);
+            String rateStr = invoice.getGstRatePercent() != null ? invoice.getGstRatePercent().toString() : "0";
+            addTotalRow(totalsTable, "GST (" + rateStr + "%):", formatAmount(invoice.getGstAmount()), regularFont, regularFont);
         }
 
-        addTotalRow(totalsTable, "Grand Total:", String.format("Rs. %.2f", invoice.getTotalAmount()), boldFont, boldFont);
-        addTotalRow(totalsTable, "Amount Paid:", String.format("Rs. %.2f", invoice.getPaidAmount()), regularFont, regularFont);
-        addTotalRow(totalsTable, "Balance Due:", String.format("Rs. %.2f", invoice.getBalanceAmount()), boldFont, boldFont);
+        addTotalRow(totalsTable, "Grand Total:", formatAmount(invoice.getTotalAmount()), boldFont, boldFont);
+        if (invoice.getCreditAppliedAmount() != null && invoice.getCreditAppliedAmount().compareTo(BigDecimal.ZERO) > 0) {
+            addTotalRow(totalsTable, "Credit Applied:", formatAmount(invoice.getCreditAppliedAmount()), regularFont, regularFont);
+        }
+        addTotalRow(totalsTable, "Amount Paid:", formatAmount(invoice.getPaidAmount()), regularFont, regularFont);
+        addTotalRow(totalsTable, "Balance Due:", formatAmount(invoice.getBalanceAmount()), boldFont, boldFont);
 
         PdfPCell totalsWrapper = new PdfPCell(totalsTable);
         totalsWrapper.setBorderColor(BORDER_COLOR);
@@ -296,5 +299,13 @@ public class InvoicePdfService {
         cellVal.setHorizontalAlignment(Element.ALIGN_RIGHT);
         cellVal.setPadding(3);
         table.addCell(cellVal);
+    }
+
+    private String formatAmount(BigDecimal amount) {
+        return String.format("Rs. %.2f", amount != null ? amount : BigDecimal.ZERO);
+    }
+
+    private String formatDecimal(BigDecimal amount) {
+        return String.format("%.2f", amount != null ? amount : BigDecimal.ZERO);
     }
 }

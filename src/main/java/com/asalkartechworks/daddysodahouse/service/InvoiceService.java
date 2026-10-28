@@ -118,7 +118,7 @@ public class InvoiceService {
         String invoiceNumber = generateInvoiceNumber(dto.getInvoiceType());
 
         BigDecimal creditApplied = franchiseCreditBalanceRepository.findByFranchiseId(salesOrder.getFranchise().getId())
-                .map(c -> c.getBalanceAmount().min(totalAmount).max(BigDecimal.ZERO))
+                .map(c -> (c.getBalanceAmount() == null ? BigDecimal.ZERO : c.getBalanceAmount()).min(totalAmount).max(BigDecimal.ZERO))
                 .orElse(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
         Invoice invoice = Invoice.builder()
                 .salesOrder(salesOrder)
@@ -157,7 +157,8 @@ public class InvoiceService {
         Invoice saved = invoiceRepository.save(invoice);
         if (creditApplied.compareTo(BigDecimal.ZERO) > 0) {
             franchiseCreditBalanceRepository.findByFranchiseId(salesOrder.getFranchise().getId()).ifPresent(c -> {
-                c.setBalanceAmount(c.getBalanceAmount().subtract(creditApplied));
+                BigDecimal curr = c.getBalanceAmount() == null ? BigDecimal.ZERO : c.getBalanceAmount();
+                c.setBalanceAmount(curr.subtract(creditApplied).max(BigDecimal.ZERO));
                 franchiseCreditBalanceRepository.save(c);
             });
         }
