@@ -8,6 +8,7 @@ import com.asalkartechworks.daddysodahouse.dto.invoice.InvoiceItemResponseDto;
 import com.asalkartechworks.daddysodahouse.dto.invoice.InvoiceResponseDto;
 import com.asalkartechworks.daddysodahouse.dto.invoice.InvoiceSummaryDto;
 import com.asalkartechworks.daddysodahouse.dto.invoice.PaymentCollectionResponseDto;
+import com.asalkartechworks.daddysodahouse.entity.FranchiseCreditBalance;
 import com.asalkartechworks.daddysodahouse.entity.Invoice;
 import com.asalkartechworks.daddysodahouse.entity.InvoiceItem;
 import com.asalkartechworks.daddysodahouse.entity.InvoicePaymentStatus;
@@ -220,6 +221,73 @@ public class InvoiceService {
 
         Invoice saved = invoiceRepository.save(invoice);
         log.info("Updated due date for invoice {} to {}. Status: {}", saved.getInvoiceNumber(), saved.getDueDate(), saved.getPaymentStatus());
+        return toResponseDto(saved);
+    }
+
+    /**
+     * Apply franchise available credit to pay down or clear an invoice balance.
+     */
+    @Transactional
+    public InvoiceResponseDto applyCredit(UUID invoiceId, BigDecimal amountToApply, UserPrincipal principal) {
+        Invoice invoice = invoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice", "id", invoiceId));
+
+        verifyFranchiseOwnershipIfOwner(invoice, principal);
+
+        if (invoice.getBalanceAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Invoice is already fully paid");
+        }
+
+        FranchiseCreditBalance creditBalance = franchiseCreditBalanceRepository
+                .findByFranchiseId(invoice.getSalesOrder().getFranchise().getId())
+                .orElseThrow(() -> new BadRequestException("No credit balance record found for this franchise"));
+
+        BigDecimal availableCredit = creditBalance.getBalanceAmount() == null ? BigDecimal.ZERO : creditBalance.getBalanceAmount();
+        if (availableCredit.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("No available credit balance to apply. Current available credit: 0.00");
+        }
+
+        BigDecimal effectiveAmount;
+        if (amountToApply == null || amountToApply.compareTo(BigDecimal.ZERO) <= 0) {
+            effectiveAmount = availableCredit.min(invoice.getBalanceAmount());
+        } else {
+            if (amountToApply.compareTo(availableCredit) > 0) {
+                throw new BadRequestException(String.format("Requested amount %s exceeds available credit %s", amountToApply, availableCredit));
+            }
+            if (amountToApply.compareTo(invoice.getBalanceAmount()) > 0) {
+                throw new BadRequestException(String.format("Requested amount %s exceeds remaining invoice balance %s", amountToApply, invoice.getBalanceAmount()));
+            }
+            effectiveAmount = amountToApply.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        // Deduct from franchise credit balance
+        creditBalance.setBalanceAmount(availableCredit.subtract(effectiveAmount).max(BigDecimal.ZERO));
+        franchiseCreditBalanceRepository.save(creditBalance);
+
+        // Update invoice credit and paid amounts
+        BigDecimal currentCredit = invoice.getCreditAppliedAmount() == null ? BigDecimal.ZERO : invoice.getCreditAppliedAmount();
+        BigDecimal newCreditApplied = currentCredit.add(effectiveAmount);
+        BigDecimal newPaidAmount = invoice.getPaidAmount().add(effectiveAmount);
+        BigDecimal newBalanceAmount = invoice.getTotalAmount().subtract(newPaidAmount).max(BigDecimal.ZERO);
+
+        invoice.setCreditAppliedAmount(newCreditApplied);
+        invoice.setPaidAmount(newPaidAmount);
+        invoice.setBalanceAmount(newBalanceAmount);
+        invoice.recalculatePaymentStatus(LocalDate.now());
+
+        // Regenerate PDF with updated totals
+        try {
+            String pdfPath = invoicePdfService.generateAndSavePdf(invoice);
+            invoice.setPdfFilePath(pdfPath);
+            invoice.setPdfGeneratedAt(Instant.now());
+        } catch (Exception e) {
+            log.warn("Failed to regenerate PDF after applying credit for {}: {}", invoice.getInvoiceNumber(), e.getMessage());
+        }
+
+        Invoice saved = invoiceRepository.save(invoice);
+        log.info("Applied credit {} to invoice {}. New balance: {}, Remaining franchise credit: {}",
+                effectiveAmount, saved.getInvoiceNumber(), saved.getBalanceAmount(), creditBalance.getBalanceAmount());
+
         return toResponseDto(saved);
     }
 

@@ -45,6 +45,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.math.BigDecimal;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -211,6 +213,21 @@ public class InvoiceController {
         InvoicePaymentSummaryResponseDto response = paymentCollectionService.recordPayment(id, dto, principal);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "Payment collection recorded successfully"));
+    }
+
+    @PostMapping("/{id}/apply-credit")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MANAGER', 'FRANCHISE_OWNER')")
+    @Operation(
+            summary = "Apply franchise credit to due invoice",
+            description = "Apply available franchise credit points to settle or partially pay an invoice balance."
+    )
+    public ResponseEntity<ApiResponse<InvoiceResponseDto>> applyCredit(
+            @PathVariable UUID id,
+            @RequestBody(required = false) Map<String, BigDecimal> requestBody,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        BigDecimal amount = (requestBody != null && requestBody.containsKey("amount")) ? requestBody.get("amount") : null;
+        InvoiceResponseDto response = invoiceService.applyCredit(id, amount, principal);
+        return ResponseEntity.ok(ApiResponse.success(response, "Franchise credit applied successfully"));
     }
 
     @GetMapping("/{id}/payments")

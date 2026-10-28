@@ -13,10 +13,12 @@ import com.asalkartechworks.daddysodahouse.exception.BadRequestException;
 import com.asalkartechworks.daddysodahouse.exception.ResourceNotFoundException;
 import com.asalkartechworks.daddysodahouse.repository.EnquiryRepository;
 import com.asalkartechworks.daddysodahouse.security.UserPrincipal;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -26,6 +28,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -83,10 +87,32 @@ public class EnquiryService {
 
         Instant fromInstant = fromDate != null ? fromDate.atStartOfDay().toInstant(ZoneOffset.UTC) : null;
         Instant toInstant = toDate != null ? toDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC) : null;
-        String searchTerm = StringUtils.hasText(search) ? search.trim() : null;
+        String searchTerm = StringUtils.hasText(search) ? search.trim().toLowerCase() : null;
 
-        return enquiryRepository.searchEnquiries(status, searchTerm, fromInstant, toInstant, pageable)
-                .map(this::toSummaryDto);
+        Specification<Enquiry> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            if (searchTerm != null) {
+                String pattern = "%" + searchTerm + "%";
+                predicates.add(cb.or(
+                    cb.like(cb.lower(root.get("fullName")), pattern),
+                    cb.like(root.get("mobile"), pattern),
+                    cb.like(cb.lower(root.get("city")), pattern),
+                    cb.like(cb.lower(root.get("enquiryNumber")), pattern)
+                ));
+            }
+            if (fromInstant != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), fromInstant));
+            }
+            if (toInstant != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), toInstant));
+            }
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return enquiryRepository.findAll(spec, pageable).map(this::toSummaryDto);
     }
 
     /**
