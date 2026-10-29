@@ -21,6 +21,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.util.StringUtils;
+import java.util.ArrayList;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -284,8 +288,28 @@ public class InventoryService {
         Instant fromInstant = fromDate != null ? fromDate.atStartOfDay().toInstant(ZoneOffset.UTC) : null;
         Instant toInstant = toDate != null ? toDate.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC) : null;
 
-        Page<StockMovement> page = stockMovementRepository.searchStockMovements(
-                productId, movementType, referenceType, fromInstant, toInstant, pageable);
+        Specification<StockMovement> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (productId != null) {
+                predicates.add(cb.equal(root.get("product").get("id"), productId));
+            }
+            if (movementType != null) {
+                predicates.add(cb.equal(root.get("movementType"), movementType));
+            }
+            if (StringUtils.hasText(referenceType)) {
+                predicates.add(cb.equal(cb.lower(root.get("referenceType")), referenceType.trim().toLowerCase()));
+            }
+            if (fromInstant != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("movementAt"), fromInstant));
+            }
+            if (toInstant != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("movementAt"), toInstant));
+            }
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<StockMovement> page = stockMovementRepository.findAll(spec, pageable);
+
 
         return PageResponse.from(page.map(this::toMovementResponseDto));
     }

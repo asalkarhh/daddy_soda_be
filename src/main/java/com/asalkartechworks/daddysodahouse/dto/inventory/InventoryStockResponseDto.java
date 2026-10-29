@@ -1,5 +1,6 @@
 package com.asalkartechworks.daddysodahouse.dto.inventory;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,4 +23,9 @@ public class InventoryStockResponseDto {
     private BigDecimal availableQuantity;
     private boolean active;
     private Instant lastMovementAt;
+
+    @JsonProperty("productActive")
+    public boolean getProductActive() {
+        return active;
+    }
 }

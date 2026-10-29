@@ -1,6 +1,7 @@
 package com.asalkartechworks.daddysodahouse.dto.order;
 
 import com.asalkartechworks.daddysodahouse.entity.SalesOrderStatus;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.PastOrPresent;
@@ -25,6 +26,7 @@ public class OrderCreateRequestDto {
     @PastOrPresent(message = "Order date cannot be a future date")
     private LocalDate orderDate;
 
+    @JsonAlias({"initialStatus", "status"})
     @Builder.Default
     private SalesOrderStatus status = SalesOrderStatus.PLACED;
 

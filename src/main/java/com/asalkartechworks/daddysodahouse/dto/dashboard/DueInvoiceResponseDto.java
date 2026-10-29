@@ -36,4 +36,8 @@ public class DueInvoiceResponseDto {
 
     @Schema(description = "Severity color indicator: RED for OVERDUE, AMBER for DUE_TODAY, NORMAL for UPCOMING", example = "RED")
     private DueSeverity displaySeverity;
+
+    public UUID getId() {
+        return invoiceId;
+    }
 }
