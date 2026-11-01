@@ -31,6 +31,8 @@ public class PurchaseResponseDto {
     private Instant cancelledAt;
     private UUID cancelledBy;
     private List<PurchaseItemResponseDto> items;
+    private int itemCount;
+    private int totalItems;
     private BigDecimal totalQuantity;
     private Instant createdAt;
     private Instant updatedAt;

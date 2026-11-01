@@ -37,7 +37,7 @@ app:
     default-gst-rate-percent: 18.00
     storage-path: ./target/test-invoices
   enquiry:
-    whatsapp-number: "919876543210"
+    whatsapp-number: "918237522072"
 
 springdoc:
   api-docs:

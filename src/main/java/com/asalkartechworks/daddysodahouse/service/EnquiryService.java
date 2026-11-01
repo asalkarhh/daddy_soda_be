@@ -140,6 +140,10 @@ public class EnquiryService {
         EnquiryStatus currentStatus = enquiry.getStatus();
         EnquiryStatus targetStatus = dto.getStatus();
 
+        if (currentStatus == EnquiryStatus.CLOSED) {
+            throw new BadRequestException("Enquiry #" + enquiry.getEnquiryNumber() + " is CLOSED. Closed enquiries cannot be modified.");
+        }
+
         if (currentStatus != targetStatus) {
             if (currentStatus == EnquiryStatus.NEW && targetStatus == EnquiryStatus.CLOSED) {
                 if (principal == null || principal.getRole() != UserRole.SUPER_ADMIN) {
@@ -190,7 +194,7 @@ public class EnquiryService {
     public String buildWhatsAppClickToChatUrl(Enquiry enquiry) {
         String recipientNumber = enquiryProperties.getWhatsappNumber();
         if (!StringUtils.hasText(recipientNumber)) {
-            recipientNumber = "919876543210";
+            recipientNumber = "918237522072";
         }
         // Clean any non-digits from configured number
         recipientNumber = recipientNumber.replaceAll("[^0-9]", "");

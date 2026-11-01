@@ -25,6 +25,7 @@ public class OrderSummaryDto {
     private LocalDate orderDate;
     private SalesOrderStatus status;
     private int itemCount;
+    private int totalItems;
     private BigDecimal totalQuantity;
     private BigDecimal orderTotal;
     private UUID createdBy;

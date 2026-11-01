@@ -159,6 +159,12 @@ public class InventoryService {
      */
     @Transactional
     public StockAdjustmentResponseDto adjustStock(StockAdjustmentRequestDto dto, UUID userId) {
+        if (dto.getQuantity() == null || dto.getQuantity().compareTo(BigDecimal.ONE) < 0 || dto.getQuantity().remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+            throw new BadRequestException("Adjustment quantity must be a positive whole number");
+        }
+        if (dto.getQuantity() == null || dto.getQuantity().compareTo(BigDecimal.ONE) < 0 || dto.getQuantity().remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+            throw new BadRequestException("Adjustment quantity must be a positive whole number");
+        }
         Product product = productRepository.findById(dto.getProductId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", dto.getProductId()));
 

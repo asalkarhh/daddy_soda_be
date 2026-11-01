@@ -39,6 +39,8 @@ public class OrderResponseDto {
     private Instant deliveredAt;
     private UUID deliveredBy;
     private List<OrderItemResponseDto> items;
+    private int itemCount;
+    private int totalItems;
     private BigDecimal totalQuantity;
     private BigDecimal orderTotal;
     private BigDecimal availableCredit;

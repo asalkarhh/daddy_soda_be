@@ -3,6 +3,7 @@ package com.asalkartechworks.daddysodahouse.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
+import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,6 +19,16 @@ public class InvoiceOverdueScheduler {
     /**
      * Executes daily at 12:05 AM server time.
      */
+    @PostConstruct
+    public void onStartup() {
+        try {
+            int count = invoiceService.refreshOverdueInvoices();
+            log.info("Initialized overdue invoices check on startup. Refreshed count: {}", count);
+        } catch (Exception e) {
+            log.error("Failed to run overdue check on startup: {}", e.getMessage());
+        }
+    }
+
     @Scheduled(cron = "0 5 0 * * ?")
     public void runDailyOverdueStatusRefresh() {
         log.info("Starting daily overdue invoice status check...");

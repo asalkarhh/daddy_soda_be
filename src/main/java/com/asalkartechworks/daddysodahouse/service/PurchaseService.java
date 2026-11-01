@@ -84,6 +84,10 @@ public class PurchaseService {
                 throw new BadRequestException("Cannot add inactive product to purchase bill: " + product.getFlavourName());
             }
 
+            if (itemDto.getQuantity() == null || itemDto.getQuantity().compareTo(BigDecimal.ONE) < 0 || itemDto.getQuantity().remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+                throw new BadRequestException("Quantity must be a positive whole number for product: " + product.getFlavourName());
+            }
+
             products.add(product);
         }
 
@@ -295,6 +299,8 @@ public class PurchaseService {
                 .cancelledAt(p.getCancelledAt())
                 .cancelledBy(p.getCancelledBy())
                 .items(items)
+                .itemCount(items != null ? items.size() : 0)
+                .totalItems(items != null ? items.size() : 0)
                 .totalQuantity(totalQty)
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())
@@ -318,6 +324,7 @@ public class PurchaseService {
                 .billDate(p.getBillDate())
                 .status(p.getStatus())
                 .itemCount(p.getItems().size())
+                .totalItems(p.getItems().size())
                 .totalQuantity(totalQty)
                 .createdAt(p.getCreatedAt())
                 .build();

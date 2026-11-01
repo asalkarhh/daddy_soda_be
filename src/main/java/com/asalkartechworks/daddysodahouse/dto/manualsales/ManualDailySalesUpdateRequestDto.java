@@ -18,7 +18,7 @@ import java.math.BigDecimal;
 public class ManualDailySalesUpdateRequestDto {
 
     @NotNull(message = "Quantity is mandatory")
-    @DecimalMin(value = "0.001", message = "Quantity must be greater than zero")
+    @DecimalMin(value = "1", message = "Quantity must be at least 1")
     private BigDecimal quantity;
 
     @NotNull(message = "Quantity unit is mandatory")

@@ -466,7 +466,15 @@ public class InvoiceService {
                 .excessCreditAmount(invoice.getExcessCreditAmount())
                 .paidAmount(invoice.getPaidAmount())
                 .balanceAmount(invoice.getBalanceAmount())
-                .paymentStatus(invoice.getPaymentStatus())
+                .paymentStatus(
+                        invoice.getPaymentStatus() != InvoicePaymentStatus.PAID
+                                && invoice.getBalanceAmount() != null
+                                && invoice.getBalanceAmount().compareTo(BigDecimal.ZERO) > 0
+                                && invoice.getDueDate() != null
+                                && invoice.getDueDate().isBefore(LocalDate.now())
+                                ? InvoicePaymentStatus.OVERDUE
+                                : invoice.getPaymentStatus()
+                )
                 .pdfDownloadUrl(downloadUrl)
                 .pdfGeneratedAt(invoice.getPdfGeneratedAt())
                 .notes(invoice.getNotes())
@@ -502,7 +510,15 @@ public class InvoiceService {
                 .totalAmount(invoice.getTotalAmount())
                 .paidAmount(invoice.getPaidAmount())
                 .balanceAmount(invoice.getBalanceAmount())
-                .paymentStatus(invoice.getPaymentStatus())
+                .paymentStatus(
+                        invoice.getPaymentStatus() != InvoicePaymentStatus.PAID
+                                && invoice.getBalanceAmount() != null
+                                && invoice.getBalanceAmount().compareTo(BigDecimal.ZERO) > 0
+                                && invoice.getDueDate() != null
+                                && invoice.getDueDate().isBefore(LocalDate.now())
+                                ? InvoicePaymentStatus.OVERDUE
+                                : invoice.getPaymentStatus()
+                )
                 .pdfAvailable(invoice.getPdfFilePath() != null)
                 .createdAt(invoice.getCreatedAt())
                 .build();

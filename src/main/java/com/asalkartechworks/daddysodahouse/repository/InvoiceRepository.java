@@ -36,13 +36,21 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
           AND (:salesOrderId IS NULL OR so.id = :salesOrderId)
           AND (:invoiceNumber IS NULL OR LOWER(i.invoiceNumber) LIKE LOWER(CONCAT('%', CAST(:invoiceNumber AS String), '%')))
           AND (:invoiceType IS NULL OR i.invoiceType = :invoiceType)
-          AND (:paymentStatus IS NULL OR i.paymentStatus = :paymentStatus)
+          AND (
+              :paymentStatus IS NULL 
+              OR i.paymentStatus = :paymentStatus 
+              OR (:paymentStatus = 'OVERDUE' AND i.balanceAmount > 0 AND i.dueDate IS NOT NULL AND i.dueDate < CURRENT_DATE)
+          )
           AND (:paymentTerm IS NULL OR i.paymentTerm = :paymentTerm)
           AND (:fromDate IS NULL OR i.invoiceDate >= :fromDate)
           AND (:toDate IS NULL OR i.invoiceDate <= :toDate)
           AND (:dueFrom IS NULL OR i.dueDate >= :dueFrom)
           AND (:dueTo IS NULL OR i.dueDate <= :dueTo)
-          AND (:overdueOnly IS NULL OR (:overdueOnly = true AND i.paymentStatus = 'OVERDUE') OR :overdueOnly = false)
+          AND (
+              :overdueOnly IS NULL 
+              OR (:overdueOnly = true AND (i.paymentStatus = 'OVERDUE' OR (i.balanceAmount > 0 AND i.dueDate IS NOT NULL AND i.dueDate < CURRENT_DATE))) 
+              OR :overdueOnly = false
+          )
     """)
     Page<Invoice> searchInvoices(
             @Param("franchiseId") UUID franchiseId,

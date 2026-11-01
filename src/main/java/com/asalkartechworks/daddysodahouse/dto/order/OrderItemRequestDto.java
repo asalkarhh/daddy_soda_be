@@ -22,7 +22,7 @@ public class OrderItemRequestDto {
     private UUID productId;
 
     @NotNull(message = "Quantity is mandatory")
-    @DecimalMin(value = "0.001", message = "Quantity must be greater than zero")
+    @DecimalMin(value = "1", message = "Quantity must be at least 1")
     private BigDecimal quantity;
 
     private BigDecimal originalQuantity;

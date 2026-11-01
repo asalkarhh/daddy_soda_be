@@ -26,6 +26,7 @@ public class PurchaseSummaryDto {
     private LocalDate billDate;
     private PurchaseStatus status;
     private int itemCount;
+    private int totalItems;
     private BigDecimal totalQuantity;
     private Instant createdAt;
 }

@@ -16,5 +16,5 @@ public class EnquiryProperties {
      * WhatsApp enquiry recipient number in international format without plus sign
      * (e.g. 919876543210 for an Indian number).
      */
-    private String whatsappNumber = "919876543210";
+    private String whatsappNumber = "918237522072";
 }

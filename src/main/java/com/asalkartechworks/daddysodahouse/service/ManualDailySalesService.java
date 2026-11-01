@@ -92,8 +92,8 @@ public class ManualDailySalesService {
         }
 
         // Validate Quantity
-        if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BadRequestException("Quantity must be greater than zero");
+        if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ONE) < 0 || request.getQuantity().remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+            throw new BadRequestException("Quantity must be a positive whole number");
         }
 
         // Prevent Duplicate Entry
@@ -134,8 +134,8 @@ public class ManualDailySalesService {
         // Enforce Franchise Owner ownership
         verifyRecordOwnership(entry, principal);
 
-        if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BadRequestException("Quantity must be greater than zero");
+        if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ONE) < 0 || request.getQuantity().remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+            throw new BadRequestException("Quantity must be a positive whole number");
         }
 
         entry.setQuantity(request.getQuantity());

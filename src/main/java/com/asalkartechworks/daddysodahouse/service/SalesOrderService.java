@@ -100,6 +100,10 @@ public class SalesOrderService {
             throw new BadRequestException("Initial order status can only be DRAFT or PLACED. Supplied: " + status);
         }
 
+        if (status == SalesOrderStatus.PLACED && isFranchiseOwner) {
+            checkFranchiseNoOverdue(franchise.getId());
+        }
+
         String orderNumber = generateOrderNumber();
 
         SalesOrder order = SalesOrder.builder()
@@ -266,6 +270,10 @@ public class SalesOrderService {
 
         verifyFranchiseOwnershipIfOwner(order, principal);
 
+        if (principal.getRole() == UserRole.FRANCHISE_OWNER) {
+            checkFranchiseNoOverdue(order.getFranchise().getId());
+        }
+
         if (order.getStatus() != SalesOrderStatus.DRAFT) {
             throw new BadRequestException("Only DRAFT orders can be moved to PLACED status. Current status: " + order.getStatus());
         }
@@ -396,6 +404,10 @@ public class SalesOrderService {
 
         verifyFranchiseOwnershipIfOwner(order, principal);
 
+        if (principal.getRole() == UserRole.FRANCHISE_OWNER) {
+            checkFranchiseNoOverdue(order.getFranchise().getId());
+        }
+
         if (order.getStatus() != SalesOrderStatus.DRAFT) {
             throw new BadRequestException("Only DRAFT orders can be deleted. Current status: " + order.getStatus());
         }
@@ -422,6 +434,13 @@ public class SalesOrderService {
 
             if (!product.isActive()) {
                 throw new BadRequestException("Cannot add inactive product to order: " + product.getFlavourName());
+            }
+
+            if (itemDto.getQuantity() == null || itemDto.getQuantity().compareTo(BigDecimal.ONE) < 0 || itemDto.getQuantity().remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+                throw new BadRequestException("Order item quantity must be a positive whole number for product: " + product.getFlavourName());
+            }
+            if (itemDto.getOriginalQuantity() != null && (itemDto.getOriginalQuantity().compareTo(BigDecimal.ONE) < 0 || itemDto.getOriginalQuantity().remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0)) {
+                throw new BadRequestException("Original quantity must be a positive whole number");
             }
 
             BigDecimal unitPrice;
@@ -541,6 +560,8 @@ public class SalesOrderService {
                 .deliveredAt(order.getDeliveredAt())
                 .deliveredBy(order.getDeliveredBy())
                 .items(itemDtos)
+                .itemCount(itemDtos.size())
+                .totalItems(itemDtos.size())
                 .totalQuantity(totalQuantity)
                 .orderTotal(orderTotal)
                 .availableCredit(availableCredit)
@@ -585,10 +606,23 @@ public class SalesOrderService {
                 .orderDate(order.getOrderDate())
                 .status(order.getStatus())
                 .itemCount(order.getItems().size())
+                .totalItems(order.getItems().size())
                 .totalQuantity(totalQuantity)
                 .orderTotal(orderTotal)
                 .createdBy(order.getCreatedBy())
                 .createdAt(order.getCreatedAt())
                 .build();
     }
+    private void checkFranchiseNoOverdue(UUID franchiseId) {
+        LocalDate today = LocalDate.now();
+        long overdueCount = invoiceRepository.countOverdueInvoicesByFranchiseId(franchiseId, today);
+        if (overdueCount > 0) {
+            BigDecimal overdueAmount = invoiceRepository.sumOverdueAmountByFranchiseId(franchiseId, today);
+            throw new BadRequestException(String.format(
+                    "Direct order placement is restricted because your franchise has %d overdue invoice(s) totalling ₹%s. " +
+                    "Please clear outstanding overdue dues or save your order as a DRAFT.",
+                    overdueCount, overdueAmount != null ? overdueAmount.setScale(2, RoundingMode.HALF_UP).toPlainString() : "0.00"));
+        }
+    }
+
 }
