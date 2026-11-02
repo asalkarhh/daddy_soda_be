@@ -27,6 +27,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -61,7 +62,7 @@ public class ReportService {
         sb.append("\uFEFF");
 
         // Header
-        sb.append(CsvExportUtil.formatRow(List.of(
+        sb.append(CsvExportUtil.formatRow(Arrays.asList(
                 "Purchase Number",
                 "Bill Date",
                 "Supplier",
@@ -78,37 +79,51 @@ public class ReportService {
 
         // Rows
         for (PurchaseEntry pe : purchases) {
+            String purchaseNumber = pe.getPurchaseNumber() != null ? pe.getPurchaseNumber() : "";
+            String billDateStr = pe.getBillDate() != null ? pe.getBillDate().toString() : "";
+            String supplierName = pe.getSupplier() != null ? pe.getSupplier().getSupplierName() : "";
+            String supplierBillNo = pe.getSupplierBillNumber() != null ? pe.getSupplierBillNumber() : "";
+            String statusStr = pe.getStatus() != null ? pe.getStatus().toString() : "";
+            String descStr = pe.getDescription() != null ? pe.getDescription() : "";
             String createdByStr = pe.getCreatedBy() != null ? pe.getCreatedBy().toString() : "";
             String createdAtStr = pe.getCreatedAt() != null ? pe.getCreatedAt().toString() : "";
 
-            if (pe.getItems().isEmpty()) {
-                sb.append(CsvExportUtil.formatRow(List.of(
-                        pe.getPurchaseNumber(),
-                        pe.getBillDate(),
-                        pe.getSupplier().getSupplierName(),
-                        pe.getSupplierBillNumber(),
+            if (pe.getItems() == null || pe.getItems().isEmpty()) {
+                sb.append(CsvExportUtil.formatRow(Arrays.asList(
+                        purchaseNumber,
+                        billDateStr,
+                        supplierName,
+                        supplierBillNo,
                         "",
                         "",
                         "",
                         "",
-                        pe.getStatus(),
-                        pe.getDescription() != null ? pe.getDescription() : "",
+                        statusStr,
+                        descStr,
                         createdByStr,
                         createdAtStr
                 )));
             } else {
                 for (PurchaseItem item : pe.getItems()) {
-                    sb.append(CsvExportUtil.formatRow(List.of(
-                            pe.getPurchaseNumber(),
-                            pe.getBillDate(),
-                            pe.getSupplier().getSupplierName(),
-                            pe.getSupplierBillNumber(),
-                            item.getProduct().getItemCode(),
-                            item.getProduct().getFlavourName(),
-                            item.getProduct().getBottleSizeLitre() != null ? item.getProduct().getBottleSizeLitre() : "",
-                            item.getQuantity(),
-                            pe.getStatus(),
-                            pe.getDescription() != null ? pe.getDescription() : "",
+                    String itemCode = (item.getProduct() != null && item.getProduct().getItemCode() != null)
+                            ? item.getProduct().getItemCode() : "";
+                    String flavourName = (item.getProduct() != null && item.getProduct().getFlavourName() != null)
+                            ? item.getProduct().getFlavourName() : "";
+                    String bottleSize = (item.getProduct() != null && item.getProduct().getBottleSizeLitre() != null)
+                            ? item.getProduct().getBottleSizeLitre().toString() : "";
+                    String qtyStr = item.getQuantity() != null ? item.getQuantity().toString() : "";
+
+                    sb.append(CsvExportUtil.formatRow(Arrays.asList(
+                            purchaseNumber,
+                            billDateStr,
+                            supplierName,
+                            supplierBillNo,
+                            itemCode,
+                            flavourName,
+                            bottleSize,
+                            qtyStr,
+                            statusStr,
+                            descStr,
                             createdByStr,
                             createdAtStr
                     )));
@@ -136,7 +151,7 @@ public class ReportService {
         sb.append("\uFEFF");
 
         // Header
-        sb.append(CsvExportUtil.formatRow(List.of(
+        sb.append(CsvExportUtil.formatRow(Arrays.asList(
                 "Order Number",
                 "Order Date",
                 "Franchise Name",
@@ -153,17 +168,20 @@ public class ReportService {
 
         // Rows
         for (SalesOrder o : orders) {
+            String orderNumber = o.getOrderNumber() != null ? o.getOrderNumber() : "";
+            String orderDateStr = o.getOrderDate() != null ? o.getOrderDate().toString() : "";
             String franchiseName = o.getFranchise() != null ? o.getFranchise().getBusinessName() : "";
+            String statusStr = o.getStatus() != null ? o.getStatus().toString() : "";
             String notes = o.getNotes() != null ? o.getNotes() : "";
             String createdByStr = o.getCreatedBy() != null ? o.getCreatedBy().toString() : "";
             String deliveredAtStr = o.getDeliveredAt() != null ? o.getDeliveredAt().toString() : "";
 
-            if (o.getItems().isEmpty()) {
-                sb.append(CsvExportUtil.formatRow(List.of(
-                        o.getOrderNumber(),
-                        o.getOrderDate(),
+            if (o.getItems() == null || o.getItems().isEmpty()) {
+                sb.append(CsvExportUtil.formatRow(Arrays.asList(
+                        orderNumber,
+                        orderDateStr,
                         franchiseName,
-                        o.getStatus(),
+                        statusStr,
                         "",
                         "",
                         "",
@@ -175,16 +193,24 @@ public class ReportService {
                 )));
             } else {
                 for (SalesOrderItem item : o.getItems()) {
-                    sb.append(CsvExportUtil.formatRow(List.of(
-                            o.getOrderNumber(),
-                            o.getOrderDate(),
+                    String itemCode = (item.getProduct() != null && item.getProduct().getItemCode() != null)
+                            ? item.getProduct().getItemCode() : "";
+                    String flavourName = (item.getProduct() != null && item.getProduct().getFlavourName() != null)
+                            ? item.getProduct().getFlavourName() : "";
+                    String qtyStr = item.getQuantity() != null ? item.getQuantity().toString() : "";
+                    String unitPriceStr = item.getUnitPrice() != null ? item.getUnitPrice().toString() : "";
+                    String lineTotalStr = item.getLineTotal() != null ? item.getLineTotal().toString() : "";
+
+                    sb.append(CsvExportUtil.formatRow(Arrays.asList(
+                            orderNumber,
+                            orderDateStr,
                             franchiseName,
-                            o.getStatus(),
-                            item.getProduct().getItemCode(),
-                            item.getProduct().getFlavourName(),
-                            item.getQuantity(),
-                            item.getUnitPrice(),
-                            item.getLineTotal() != null ? item.getLineTotal() : "",
+                            statusStr,
+                            itemCode,
+                            flavourName,
+                            qtyStr,
+                            unitPriceStr,
+                            lineTotalStr,
                             notes,
                             createdByStr,
                             deliveredAtStr
@@ -220,7 +246,7 @@ public class ReportService {
         sb.append("\uFEFF");
 
         // Header
-        sb.append(CsvExportUtil.formatRow(List.of(
+        sb.append(CsvExportUtil.formatRow(Arrays.asList(
                 "Invoice Number",
                 "Invoice Date",
                 "Franchise Name",
@@ -243,25 +269,36 @@ public class ReportService {
 
         // Rows
         for (Invoice inv : invoices) {
+            String invNumber = inv.getInvoiceNumber() != null ? inv.getInvoiceNumber() : "";
+            String invDateStr = inv.getInvoiceDate() != null ? inv.getInvoiceDate().toString() : "";
             String franchiseName = inv.getSalesOrder() != null && inv.getSalesOrder().getFranchise() != null
                     ? inv.getSalesOrder().getFranchise().getBusinessName() : "";
+            String invTypeStr = inv.getInvoiceType() != null ? inv.getInvoiceType().toString() : "";
+            String paymentTermStr = inv.getPaymentTerm() != null ? inv.getPaymentTerm().toString() : "";
             String dueDateStr = inv.getDueDate() != null ? inv.getDueDate().toString() : "";
+            String subtotalStr = inv.getSubtotalAmount() != null ? inv.getSubtotalAmount().toString() : "";
+            String gstRateStr = inv.getGstRatePercent() != null ? inv.getGstRatePercent().toString() : "";
+            String gstAmountStr = inv.getGstAmount() != null ? inv.getGstAmount().toString() : "";
+            String totalAmountStr = inv.getTotalAmount() != null ? inv.getTotalAmount().toString() : "";
+            String paidAmountStr = inv.getPaidAmount() != null ? inv.getPaidAmount().toString() : "";
+            String balanceAmountStr = inv.getBalanceAmount() != null ? inv.getBalanceAmount().toString() : "";
+            String paymentStatusStr = inv.getPaymentStatus() != null ? inv.getPaymentStatus().toString() : "";
 
-            if (inv.getItems().isEmpty()) {
-                sb.append(CsvExportUtil.formatRow(List.of(
-                        inv.getInvoiceNumber(),
-                        inv.getInvoiceDate(),
+            if (inv.getItems() == null || inv.getItems().isEmpty()) {
+                sb.append(CsvExportUtil.formatRow(Arrays.asList(
+                        invNumber,
+                        invDateStr,
                         franchiseName,
-                        inv.getInvoiceType(),
-                        inv.getPaymentTerm(),
+                        invTypeStr,
+                        paymentTermStr,
                         dueDateStr,
-                        inv.getSubtotalAmount(),
-                        inv.getGstRatePercent(),
-                        inv.getGstAmount(),
-                        inv.getTotalAmount(),
-                        inv.getPaidAmount(),
-                        inv.getBalanceAmount(),
-                        inv.getPaymentStatus(),
+                        subtotalStr,
+                        gstRateStr,
+                        gstAmountStr,
+                        totalAmountStr,
+                        paidAmountStr,
+                        balanceAmountStr,
+                        paymentStatusStr,
                         "",
                         "",
                         "",
@@ -270,25 +307,31 @@ public class ReportService {
                 )));
             } else {
                 for (InvoiceItem item : inv.getItems()) {
-                    sb.append(CsvExportUtil.formatRow(List.of(
-                            inv.getInvoiceNumber(),
-                            inv.getInvoiceDate(),
+                    String itemCode = item.getItemCode() != null ? item.getItemCode() : "";
+                    String flavourName = item.getFlavourName() != null ? item.getFlavourName() : "";
+                    String qtyStr = item.getQuantity() != null ? item.getQuantity().toString() : "";
+                    String unitPriceStr = item.getUnitPrice() != null ? item.getUnitPrice().toString() : "";
+                    String lineTotalStr = item.getLineTotal() != null ? item.getLineTotal().toString() : "";
+
+                    sb.append(CsvExportUtil.formatRow(Arrays.asList(
+                            invNumber,
+                            invDateStr,
                             franchiseName,
-                            inv.getInvoiceType(),
-                            inv.getPaymentTerm(),
+                            invTypeStr,
+                            paymentTermStr,
                             dueDateStr,
-                            inv.getSubtotalAmount(),
-                            inv.getGstRatePercent(),
-                            inv.getGstAmount(),
-                            inv.getTotalAmount(),
-                            inv.getPaidAmount(),
-                            inv.getBalanceAmount(),
-                            inv.getPaymentStatus(),
-                            item.getItemCode(),
-                            item.getFlavourName(),
-                            item.getQuantity(),
-                            item.getUnitPrice(),
-                            item.getLineTotal()
+                            subtotalStr,
+                            gstRateStr,
+                            gstAmountStr,
+                            totalAmountStr,
+                            paidAmountStr,
+                            balanceAmountStr,
+                            paymentStatusStr,
+                            itemCode,
+                            flavourName,
+                            qtyStr,
+                            unitPriceStr,
+                            lineTotalStr
                     )));
                 }
             }
@@ -315,7 +358,7 @@ public class ReportService {
         sb.append("\uFEFF");
 
         // Header
-        sb.append(CsvExportUtil.formatRow(List.of(
+        sb.append(CsvExportUtil.formatRow(Arrays.asList(
                 "Invoice Number",
                 "Franchise Name",
                 "Invoice Date",
@@ -330,10 +373,16 @@ public class ReportService {
 
         // Rows
         for (Invoice inv : dues) {
+            String invNumber = inv.getInvoiceNumber() != null ? inv.getInvoiceNumber() : "";
             String franchiseName = inv.getSalesOrder() != null && inv.getSalesOrder().getFranchise() != null
                     ? inv.getSalesOrder().getFranchise().getBusinessName() : "";
+            String invDateStr = inv.getInvoiceDate() != null ? inv.getInvoiceDate().toString() : "";
             LocalDate dueDate = inv.getDueDate();
             String dueDateStr = dueDate != null ? dueDate.toString() : "";
+            String totalAmountStr = inv.getTotalAmount() != null ? inv.getTotalAmount().toString() : "";
+            String paidAmountStr = inv.getPaidAmount() != null ? inv.getPaidAmount().toString() : "";
+            String balanceAmountStr = inv.getBalanceAmount() != null ? inv.getBalanceAmount().toString() : "";
+            String paymentStatusStr = inv.getPaymentStatus() != null ? inv.getPaymentStatus().toString() : "";
 
             String dueType;
             long daysOverdue = 0;
@@ -350,15 +399,15 @@ public class ReportService {
                 dueType = "N/A";
             }
 
-            sb.append(CsvExportUtil.formatRow(List.of(
-                    inv.getInvoiceNumber(),
+            sb.append(CsvExportUtil.formatRow(Arrays.asList(
+                    invNumber,
                     franchiseName,
-                    inv.getInvoiceDate(),
+                    invDateStr,
                     dueDateStr,
-                    inv.getTotalAmount(),
-                    inv.getPaidAmount(),
-                    inv.getBalanceAmount(),
-                    inv.getPaymentStatus(),
+                    totalAmountStr,
+                    paidAmountStr,
+                    balanceAmountStr,
+                    paymentStatusStr,
                     dueType,
                     daysOverdue
             )));

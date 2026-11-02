@@ -59,7 +59,7 @@ public interface PurchaseEntryRepository extends JpaRepository<PurchaseEntry, UU
 
     @Query("""
         SELECT DISTINCT pe FROM PurchaseEntry pe
-        JOIN FETCH pe.supplier s
+        LEFT JOIN FETCH pe.supplier s
         LEFT JOIN FETCH pe.items items
         LEFT JOIN FETCH items.product p
         WHERE (:supplierId IS NULL OR s.id = :supplierId)

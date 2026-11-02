@@ -23,6 +23,9 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     Optional<Invoice> findBySalesOrderId(UUID salesOrderId);
 
+    @Query("SELECT i FROM Invoice i WHERE i.salesOrder.id IN :orderIds")
+    List<Invoice> findBySalesOrderIds(@Param("orderIds") java.util.Collection<UUID> orderIds);
+
     Optional<Invoice> findByInvoiceNumber(String invoiceNumber);
 
     @Query("SELECT MAX(i.invoiceNumber) FROM Invoice i WHERE i.invoiceNumber LIKE CONCAT(:prefix, '%')")
