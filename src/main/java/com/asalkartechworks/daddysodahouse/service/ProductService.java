@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.UUID;
 
 @Slf4j
@@ -33,11 +34,18 @@ public class ProductService {
 
         validateProductPricingAndSize(dto.getBottleSizeLitre(), dto.getDefaultSellingPrice());
 
+        BigDecimal bottleSize = dto.getBottleSizeLitre() != null
+                ? dto.getBottleSizeLitre().setScale(0, RoundingMode.HALF_UP)
+                : BigDecimal.valueOf(5);
+        BigDecimal defaultPrice = dto.getDefaultSellingPrice() != null
+                ? dto.getDefaultSellingPrice().setScale(0, RoundingMode.HALF_UP)
+                : null;
+
         Product product = Product.builder()
                 .itemCode(dto.getItemCode().trim())
                 .flavourName(dto.getFlavourName().trim())
-                .bottleSizeLitre(dto.getBottleSizeLitre())
-                .defaultSellingPrice(dto.getDefaultSellingPrice())
+                .bottleSizeLitre(bottleSize)
+                .defaultSellingPrice(defaultPrice)
                 .description(StringUtils.hasText(dto.getDescription()) ? dto.getDescription().trim() : null)
                 .isActive(true)
                 .build();
@@ -69,10 +77,17 @@ public class ProductService {
 
         validateProductPricingAndSize(dto.getBottleSizeLitre(), dto.getDefaultSellingPrice());
 
+        BigDecimal bottleSize = dto.getBottleSizeLitre() != null
+                ? dto.getBottleSizeLitre().setScale(0, RoundingMode.HALF_UP)
+                : BigDecimal.valueOf(5);
+        BigDecimal defaultPrice = dto.getDefaultSellingPrice() != null
+                ? dto.getDefaultSellingPrice().setScale(0, RoundingMode.HALF_UP)
+                : null;
+
         product.setItemCode(dto.getItemCode().trim());
         product.setFlavourName(dto.getFlavourName().trim());
-        product.setBottleSizeLitre(dto.getBottleSizeLitre());
-        product.setDefaultSellingPrice(dto.getDefaultSellingPrice());
+        product.setBottleSizeLitre(bottleSize);
+        product.setDefaultSellingPrice(defaultPrice);
         product.setDescription(StringUtils.hasText(dto.getDescription()) ? dto.getDescription().trim() : null);
 
         Product updated = productRepository.save(product);
@@ -104,12 +119,19 @@ public class ProductService {
     }
 
     public ProductResponseDto toResponseDto(Product p) {
+        BigDecimal bottleSize = p.getBottleSizeLitre() != null
+                ? p.getBottleSizeLitre().setScale(0, RoundingMode.HALF_UP)
+                : BigDecimal.valueOf(5);
+        BigDecimal defaultPrice = p.getDefaultSellingPrice() != null
+                ? p.getDefaultSellingPrice().setScale(0, RoundingMode.HALF_UP)
+                : null;
+
         return ProductResponseDto.builder()
                 .id(p.getId())
                 .itemCode(p.getItemCode())
                 .flavourName(p.getFlavourName())
-                .bottleSizeLitre(p.getBottleSizeLitre())
-                .defaultSellingPrice(p.getDefaultSellingPrice())
+                .bottleSizeLitre(bottleSize)
+                .defaultSellingPrice(defaultPrice)
                 .description(p.getDescription())
                 .active(p.isActive())
                 .createdAt(p.getCreatedAt())

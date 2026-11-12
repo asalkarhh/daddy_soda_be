@@ -67,10 +67,19 @@ public class ReportService {
                 "Bill Date",
                 "Supplier",
                 "Supplier Bill Number",
+                "Subtotal",
+                "GST Rate",
+                "GST Amount",
+                "Total Amount",
+                "Paid Amount",
+                "Balance Amount",
+                "Payment Status",
                 "Product Code",
                 "Flavour Name",
                 "Bottle Size Litre",
                 "Quantity",
+                "Unit Price",
+                "Line Total",
                 "Purchase Status",
                 "Description",
                 "Created By",
@@ -83,6 +92,13 @@ public class ReportService {
             String billDateStr = pe.getBillDate() != null ? pe.getBillDate().toString() : "";
             String supplierName = pe.getSupplier() != null ? pe.getSupplier().getSupplierName() : "";
             String supplierBillNo = pe.getSupplierBillNumber() != null ? pe.getSupplierBillNumber() : "";
+            String subtotalStr = pe.getSubtotalAmount() != null ? pe.getSubtotalAmount().toString() : "0.00";
+            String gstRateStr = pe.getGstRatePercent() != null ? pe.getGstRatePercent().toString() : "18.00";
+            String gstAmountStr = pe.getGstAmount() != null ? pe.getGstAmount().toString() : "0.00";
+            String totalAmountStr = pe.getTotalAmount() != null ? pe.getTotalAmount().toString() : "0.00";
+            String paidAmountStr = pe.getPaidAmount() != null ? pe.getPaidAmount().toString() : "0.00";
+            String balanceAmountStr = pe.getBalanceAmount() != null ? pe.getBalanceAmount().toString() : "0.00";
+            String paymentStatusStr = pe.getPaymentStatus() != null ? pe.getPaymentStatus().toString() : "UNPAID";
             String statusStr = pe.getStatus() != null ? pe.getStatus().toString() : "";
             String descStr = pe.getDescription() != null ? pe.getDescription() : "";
             String createdByStr = pe.getCreatedBy() != null ? pe.getCreatedBy().toString() : "";
@@ -94,6 +110,15 @@ public class ReportService {
                         billDateStr,
                         supplierName,
                         supplierBillNo,
+                        subtotalStr,
+                        gstRateStr,
+                        gstAmountStr,
+                        totalAmountStr,
+                        paidAmountStr,
+                        balanceAmountStr,
+                        paymentStatusStr,
+                        "",
+                        "",
                         "",
                         "",
                         "",
@@ -112,16 +137,27 @@ public class ReportService {
                     String bottleSize = (item.getProduct() != null && item.getProduct().getBottleSizeLitre() != null)
                             ? item.getProduct().getBottleSizeLitre().toString() : "";
                     String qtyStr = item.getQuantity() != null ? item.getQuantity().toString() : "";
+                    String unitPriceStr = item.getUnitPrice() != null ? item.getUnitPrice().toString() : "0.00";
+                    String lineTotalStr = item.getLineTotal() != null ? item.getLineTotal().toString() : "0.00";
 
                     sb.append(CsvExportUtil.formatRow(Arrays.asList(
                             purchaseNumber,
                             billDateStr,
                             supplierName,
                             supplierBillNo,
+                            subtotalStr,
+                            gstRateStr,
+                            gstAmountStr,
+                            totalAmountStr,
+                            paidAmountStr,
+                            balanceAmountStr,
+                            paymentStatusStr,
                             itemCode,
                             flavourName,
                             bottleSize,
                             qtyStr,
+                            unitPriceStr,
+                            lineTotalStr,
                             statusStr,
                             descStr,
                             createdByStr,

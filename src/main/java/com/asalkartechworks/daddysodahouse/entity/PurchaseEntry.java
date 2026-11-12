@@ -26,6 +26,7 @@ import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -40,7 +41,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"supplier", "items"})
+@ToString(exclude = {"supplier", "items", "payments"})
 public class PurchaseEntry {
 
     @Id
@@ -68,6 +69,35 @@ public class PurchaseEntry {
     @Column(name = "status", length = 30, nullable = false)
     private PurchaseStatus status;
 
+    @Builder.Default
+    @Column(name = "subtotal_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal subtotalAmount = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "gst_rate_percent", nullable = false, precision = 5, scale = 2)
+    private BigDecimal gstRatePercent = BigDecimal.valueOf(18.00);
+
+    @Builder.Default
+    @Column(name = "gst_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal gstAmount = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "total_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal totalAmount = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "paid_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal paidAmount = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "balance_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal balanceAmount = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", length = 30, nullable = false)
+    private PurchasePaymentStatus paymentStatus = PurchasePaymentStatus.UNPAID;
+
     @Column(name = "cancelled_reason", columnDefinition = "TEXT")
     private String cancelledReason;
 
@@ -80,6 +110,10 @@ public class PurchaseEntry {
     @Builder.Default
     @OneToMany(mappedBy = "purchaseEntry", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PurchaseItem> items = new ArrayList<>();
+
+    @Builder.Default
+    @OneToMany(mappedBy = "purchaseEntry", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PurchasePayment> payments = new ArrayList<>();
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -100,5 +134,21 @@ public class PurchaseEntry {
     public void addItem(PurchaseItem item) {
         items.add(item);
         item.setPurchaseEntry(this);
+    }
+
+    public void addPayment(PurchasePayment payment) {
+        payments.add(payment);
+        payment.setPurchaseEntry(this);
+    }
+
+    public void recalculatePaymentStatus() {
+        if (this.balanceAmount == null || this.balanceAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            this.paymentStatus = PurchasePaymentStatus.PAID;
+            this.balanceAmount = BigDecimal.ZERO;
+        } else if (this.paidAmount != null && this.paidAmount.compareTo(BigDecimal.ZERO) > 0) {
+            this.paymentStatus = PurchasePaymentStatus.PARTIALLY_PAID;
+        } else {
+            this.paymentStatus = PurchasePaymentStatus.UNPAID;
+        }
     }
 }

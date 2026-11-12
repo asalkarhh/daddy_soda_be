@@ -1,5 +1,6 @@
 package com.asalkartechworks.daddysodahouse.dto.purchase;
 
+import com.asalkartechworks.daddysodahouse.entity.PurchasePaymentStatus;
 import com.asalkartechworks.daddysodahouse.entity.PurchaseStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,10 +28,18 @@ public class PurchaseResponseDto {
     private LocalDate billDate;
     private String description;
     private PurchaseStatus status;
+    private BigDecimal subtotalAmount;
+    private BigDecimal gstRatePercent;
+    private BigDecimal gstAmount;
+    private BigDecimal totalAmount;
+    private BigDecimal paidAmount;
+    private BigDecimal balanceAmount;
+    private PurchasePaymentStatus paymentStatus;
     private String cancelledReason;
     private Instant cancelledAt;
     private UUID cancelledBy;
     private List<PurchaseItemResponseDto> items;
+    private List<PurchasePaymentResponseDto> payments;
     private int itemCount;
     private int totalItems;
     private BigDecimal totalQuantity;

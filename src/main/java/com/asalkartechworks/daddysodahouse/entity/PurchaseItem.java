@@ -51,6 +51,14 @@ public class PurchaseItem {
     @Column(name = "quantity", precision = 14, scale = 3, nullable = false)
     private BigDecimal quantity;
 
+    @Builder.Default
+    @Column(name = "unit_price", precision = 12, scale = 2, nullable = false)
+    private BigDecimal unitPrice = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "line_total", precision = 14, scale = 2, nullable = false)
+    private BigDecimal lineTotal = BigDecimal.ZERO;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

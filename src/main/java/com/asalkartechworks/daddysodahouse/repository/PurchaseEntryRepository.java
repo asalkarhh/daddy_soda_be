@@ -1,10 +1,12 @@
 package com.asalkartechworks.daddysodahouse.repository;
 
 import com.asalkartechworks.daddysodahouse.entity.PurchaseEntry;
+import com.asalkartechworks.daddysodahouse.entity.PurchasePaymentStatus;
 import com.asalkartechworks.daddysodahouse.entity.PurchaseStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,7 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface PurchaseEntryRepository extends JpaRepository<PurchaseEntry, UUID> {
+public interface PurchaseEntryRepository extends JpaRepository<PurchaseEntry, UUID>, JpaSpecificationExecutor<PurchaseEntry> {
 
     Optional<PurchaseEntry> findByPurchaseNumber(String purchaseNumber);
 
@@ -29,6 +31,7 @@ public interface PurchaseEntryRepository extends JpaRepository<PurchaseEntry, UU
     @Query("SELECT p FROM PurchaseEntry p WHERE " +
            "(:supplierId IS NULL OR p.supplier.id = :supplierId) AND " +
            "(:status IS NULL OR p.status = :status) AND " +
+           "(:paymentStatus IS NULL OR p.paymentStatus = :paymentStatus) AND " +
            "(:purchaseNumber IS NULL OR LOWER(p.purchaseNumber) LIKE LOWER(CONCAT('%', CAST(:purchaseNumber AS String), '%'))) AND " +
            "(:supplierBillNumber IS NULL OR LOWER(p.supplierBillNumber) LIKE LOWER(CONCAT('%', CAST(:supplierBillNumber AS String), '%'))) AND " +
            "(:fromDate IS NULL OR p.billDate >= :fromDate) AND " +
@@ -36,6 +39,7 @@ public interface PurchaseEntryRepository extends JpaRepository<PurchaseEntry, UU
     Page<PurchaseEntry> searchPurchases(
             @Param("supplierId") UUID supplierId,
             @Param("status") PurchaseStatus status,
+            @Param("paymentStatus") PurchasePaymentStatus paymentStatus,
             @Param("purchaseNumber") String purchaseNumber,
             @Param("supplierBillNumber") String supplierBillNumber,
             @Param("fromDate") LocalDate fromDate,

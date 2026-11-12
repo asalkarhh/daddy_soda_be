@@ -4,8 +4,10 @@ import com.asalkartechworks.daddysodahouse.dto.ApiResponse;
 import com.asalkartechworks.daddysodahouse.dto.common.PageResponse;
 import com.asalkartechworks.daddysodahouse.dto.purchase.PurchaseCancelRequestDto;
 import com.asalkartechworks.daddysodahouse.dto.purchase.PurchaseCreateRequestDto;
+import com.asalkartechworks.daddysodahouse.dto.purchase.PurchasePaymentRequestDto;
 import com.asalkartechworks.daddysodahouse.dto.purchase.PurchaseResponseDto;
 import com.asalkartechworks.daddysodahouse.dto.purchase.PurchaseSummaryDto;
+import com.asalkartechworks.daddysodahouse.entity.PurchasePaymentStatus;
 import com.asalkartechworks.daddysodahouse.entity.PurchaseStatus;
 import com.asalkartechworks.daddysodahouse.security.UserPrincipal;
 import com.asalkartechworks.daddysodahouse.service.PurchaseService;
@@ -37,43 +39,55 @@ import java.util.UUID;
 @RequestMapping("/api/v1/purchases")
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MANAGER')")
-@Tag(name = "Purchase Bills", description = "Supplier purchase bill inward and stock entries (SUPER_ADMIN and MANAGER)")
+@Tag(name = "Purchase Bills", description = "Supplier purchase bill inward, buying pricing, GST, and payment ledger entries (SUPER_ADMIN and MANAGER)")
 @SecurityRequirement(name = "Bearer Authentication")
 public class PurchaseController {
 
     private final PurchaseService purchaseService;
 
     @PostMapping
-    @Operation(summary = "Create purchase bill", description = "Record manual purchase bill inward and increase warehouse stock")
+    @Operation(summary = "Create purchase bill", description = "Record purchase order with buying price, 18% GST calculation, supplier payment, and stock inward")
     public ResponseEntity<ApiResponse<PurchaseResponseDto>> createPurchase(
             @Valid @RequestBody PurchaseCreateRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
         UUID userId = principal != null ? principal.getId() : null;
         PurchaseResponseDto response = purchaseService.createPurchase(dto, userId);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(response, "Purchase bill created successfully and stock updated"));
+                .body(ApiResponse.success(response, "Purchase bill recorded successfully with 18% GST and warehouse stock updated"));
     }
 
     @GetMapping
-    @Operation(summary = "List purchase bills", description = "Get paginated purchase bills with supplier, status, date, and search filters")
+    @Operation(summary = "List purchase bills", description = "Get paginated purchase bills with supplier, payment status, status, date, and search filters")
     public ResponseEntity<ApiResponse<PageResponse<PurchaseSummaryDto>>> getAllPurchases(
             @RequestParam(required = false) UUID supplierId,
             @RequestParam(required = false) PurchaseStatus status,
+            @RequestParam(required = false) PurchasePaymentStatus paymentStatus,
             @RequestParam(required = false) String purchaseNumber,
             @RequestParam(required = false) String supplierBillNumber,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         PageResponse<PurchaseSummaryDto> response = purchaseService.getAllPurchases(
-                supplierId, status, purchaseNumber, supplierBillNumber, fromDate, toDate, pageable);
+                supplierId, status, paymentStatus, purchaseNumber, supplierBillNumber, fromDate, toDate, pageable);
         return ResponseEntity.ok(ApiResponse.success(response, "Purchase bills retrieved successfully"));
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get purchase bill by ID", description = "Retrieve full purchase bill details with item stock balance")
+    @Operation(summary = "Get purchase bill by ID", description = "Retrieve full purchase bill details with item stock balance and supplier payment ledger")
     public ResponseEntity<ApiResponse<PurchaseResponseDto>> getPurchaseById(@PathVariable UUID id) {
         PurchaseResponseDto response = purchaseService.getPurchaseById(id);
         return ResponseEntity.ok(ApiResponse.success(response, "Purchase bill retrieved successfully"));
+    }
+
+    @PostMapping("/{id}/payments")
+    @Operation(summary = "Record supplier payment", description = "Record payment made to supplier against purchase bill in the ledger")
+    public ResponseEntity<ApiResponse<PurchaseResponseDto>> recordPayment(
+            @PathVariable UUID id,
+            @Valid @RequestBody PurchasePaymentRequestDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        UUID userId = principal != null ? principal.getId() : null;
+        PurchaseResponseDto response = purchaseService.recordPayment(id, dto, userId);
+        return ResponseEntity.ok(ApiResponse.success(response, "Supplier payment recorded successfully in purchase ledger"));
     }
 
     @PostMapping("/{id}/cancel")

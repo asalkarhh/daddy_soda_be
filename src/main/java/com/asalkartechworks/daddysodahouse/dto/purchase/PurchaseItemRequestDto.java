@@ -22,4 +22,8 @@ public class PurchaseItemRequestDto {
     @NotNull(message = "Quantity is mandatory")
     @DecimalMin(value = "1", message = "Quantity must be at least 1")
     private BigDecimal quantity;
+
+    @NotNull(message = "Unit buying price is mandatory")
+    @DecimalMin(value = "0.00", message = "Unit buying price cannot be negative")
+    private BigDecimal unitPrice;
 }

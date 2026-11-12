@@ -20,5 +20,7 @@ public class PurchaseItemResponseDto {
     private String flavourName;
     private BigDecimal bottleSizeLitre;
     private BigDecimal quantity;
+    private BigDecimal unitPrice;
+    private BigDecimal lineTotal;
     private BigDecimal currentStockBalance;
 }
