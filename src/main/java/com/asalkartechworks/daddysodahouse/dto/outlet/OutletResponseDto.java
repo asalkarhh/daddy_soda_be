@@ -49,6 +49,15 @@ public class OutletResponseDto {
     @Schema(description = "Pincode", example = "411038")
     private String pincode;
 
+    @Schema(description = "Uploaded agreement file name if any", example = "Franchise_Agreement.pdf")
+    private String agreementFileName;
+
+    @Schema(description = "Uploaded agreement file type / MIME", example = "application/pdf")
+    private String agreementFileType;
+
+    @Schema(description = "Whether an agreement document is uploaded", example = "true")
+    private boolean hasAgreement;
+
     @Schema(description = "Whether outlet is active", example = "true")
     private boolean active;
 

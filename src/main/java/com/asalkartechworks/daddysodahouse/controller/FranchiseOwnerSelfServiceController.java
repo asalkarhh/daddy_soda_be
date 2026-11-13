@@ -32,9 +32,15 @@ import com.asalkartechworks.daddysodahouse.entity.InvoicePaymentStatus;
 import com.asalkartechworks.daddysodahouse.entity.InvoiceType;
 import com.asalkartechworks.daddysodahouse.entity.PaymentTerm;
 import com.asalkartechworks.daddysodahouse.service.InvoiceService;
+import com.asalkartechworks.daddysodahouse.service.OutletService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/my")
@@ -47,6 +53,7 @@ public class FranchiseOwnerSelfServiceController {
     private final FranchiseOwnerSelfService selfService;
     private final SalesOrderService salesOrderService;
     private final InvoiceService invoiceService;
+    private final OutletService outletService;
 
     @GetMapping("/franchise")
     @Operation(summary = "Get my franchise", description = "Retrieve active franchise details of the logged-in franchise owner")
@@ -60,6 +67,29 @@ public class FranchiseOwnerSelfServiceController {
     public ResponseEntity<ApiResponse<List<OutletResponseDto>>> getMyOutlets(@AuthenticationPrincipal UserPrincipal principal) {
         List<OutletResponseDto> response = selfService.getMyOutlets(principal);
         return ResponseEntity.ok(ApiResponse.success(response, "Outlets retrieved successfully"));
+    }
+
+    @GetMapping("/outlets/{id}/agreement")
+    @Operation(summary = "Download or view my outlet agreement", description = "Download or view the uploaded agreement file for an outlet belonging to the logged-in franchise owner")
+    public ResponseEntity<byte[]> downloadMyOutletAgreement(
+            @PathVariable UUID id,
+            @RequestParam(required = false, defaultValue = "false") boolean view,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        OutletService.AgreementFileDownload download = outletService.downloadAgreement(id, principal);
+
+        HttpHeaders headers = new HttpHeaders();
+        MediaType mediaType;
+        try {
+            mediaType = MediaType.parseMediaType(download.contentType());
+        } catch (Exception e) {
+            mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        }
+        headers.setContentType(mediaType);
+        String disposition = view ? "inline" : "attachment";
+        headers.set(HttpHeaders.CONTENT_DISPOSITION, disposition + "; filename=\"" + download.fileName() + "\"");
+        headers.setContentLength(download.content().length);
+
+        return new ResponseEntity<>(download.content(), headers, HttpStatus.OK);
     }
 
     @GetMapping("/machines")

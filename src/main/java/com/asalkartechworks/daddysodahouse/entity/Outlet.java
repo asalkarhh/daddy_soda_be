@@ -72,6 +72,15 @@ public class Outlet {
     @Column(name = "pincode", length = 10)
     private String pincode;
 
+    @Column(name = "agreement_file_name", length = 255)
+    private String agreementFileName;
+
+    @Column(name = "agreement_file_path", length = 500)
+    private String agreementFilePath;
+
+    @Column(name = "agreement_file_type", length = 100)
+    private String agreementFileType;
+
     @Builder.Default
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;

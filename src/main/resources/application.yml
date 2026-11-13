@@ -23,6 +23,12 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 25MB
+      max-request-size: 30MB
+
 server:
   port: ${PORT:8080}
 
@@ -52,6 +58,8 @@ app:
     company-gstin: ${COMPANY_GSTIN:27AABCS1429B1Z1}
     default-gst-rate-percent: ${DEFAULT_GST_RATE_PERCENT:18.00}
     storage-path: ${INVOICE_STORAGE_PATH:./storage/invoices}
+  agreement:
+    storage-path: ${AGREEMENT_STORAGE_PATH:./storage/agreements}
   enquiry:
     whatsapp-number: ${WHATSAPP_ENQUIRY_NUMBER:918237522072}
 
